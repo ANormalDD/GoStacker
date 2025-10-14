@@ -151,5 +151,17 @@ func RemoveMemberHandler(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Member removed successfully"})
 }
-
-
+func GetJoinedRoomsHandler(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+	userID = userID.(int64)
+	roomIDs, err := GetJoinedChatRooms(userID.(int64))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"room_ids": roomIDs})
+}

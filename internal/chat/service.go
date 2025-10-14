@@ -106,6 +106,13 @@ func RemoveRoomMember(roomID int64, targetUserID int64, requestUserID int64) err
 }
 
 func MuteMember(roomID int64, targetUserID int64, muteUntil time.Time, requestUserID int64) error {
+	isGroupRoom , err := QueryIsGroupRoom(roomID)
+	if err != nil {
+		return err
+	}
+	if !isGroupRoom {
+		return errors.New("cannot mute members in a private chat")
+	}
 	requestUserRole, err := QueryMemberRole(roomID, requestUserID)
 	if err != nil {
 		return err
@@ -118,4 +125,8 @@ func MuteMember(roomID int64, targetUserID int64, muteUntil time.Time, requestUs
 		return errors.New("permission denied")
 	}
 	return UpdateMuteUntil(roomID, targetUserID, muteUntil)
+}
+
+func GetJoinedChatRooms(userID int64) ([]int64, error) {
+	return QueryJoinedRooms(userID)
 }

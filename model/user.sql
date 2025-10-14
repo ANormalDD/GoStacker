@@ -4,6 +4,7 @@ CREATE TABLE users (
     password_hash VARCHAR(255) NOT NULL COMMENT '加密后的密码',
     nickname VARCHAR(50) DEFAULT NULL COMMENT '用户昵称',
     avatar_url VARCHAR(255) DEFAULT NULL COMMENT '头像链接',
+    joined_chatrooms TEXT DEFAULT NULL COMMENT '已加入的聊天室ID列表，逗号分隔',
     is_online BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否在线',
     is_banned BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否封禁',
     last_login_at DATETIME DEFAULT NULL COMMENT '最后登录时间',

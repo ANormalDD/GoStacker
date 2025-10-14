@@ -4,6 +4,9 @@ import (
 	"GoStacker/pkg/db/mysql"
 	"fmt"
 	"time"
+	"strings"
+	"database/sql"
+	"strconv"
 )
 
 func InsertRoom(name string, isGroup bool, creatorID int64) (int64, error) {
@@ -32,12 +35,46 @@ func CreateRoomMemberTable(roomID int64) error {
 }
 
 func InsertRoomMember(roomID int64, userID int64) error {
+	//user table update
+	tableNameUser := "users"
+	queryUser := fmt.Sprintf("UPDATE %s SET joined_chatrooms = CONCAT(IFNULL(joined_chatrooms, ''), ?, ',') WHERE id = ?", tableNameUser)
+	roomIDStr := fmt.Sprintf("%d", roomID)
+	_, err := mysql.DB.Exec(queryUser, roomIDStr, userID)
+	if err != nil {
+		return err
+	}
+	//chatroom table update
 	tableName := fmt.Sprintf("chat_room_members_room_%d", roomID)
 	query := fmt.Sprintf("INSERT INTO %s (user_id) VALUES (?)", tableName)
-	_, err := mysql.DB.Exec(query, userID)
+	_, err = mysql.DB.Exec(query, userID)
 	return err
 }
 func InsertRoomMembers(roomID int64, userIDs []int64) error {
+	//user table update
+	tableNameUser := "users"
+	queryUser := fmt.Sprintf("UPDATE %s SET joined_chatrooms = CONCAT(IFNULL(joined_chatrooms, ''), ?, ',') WHERE id = ?", tableNameUser)
+	txUser, err := mysql.DB.Begin()
+	if err != nil {
+		return err
+	}
+	stmtUser, err := txUser.Prepare(queryUser)
+	if err != nil {
+		txUser.Rollback()
+		return err
+	}
+	defer stmtUser.Close()
+	roomIDStr := fmt.Sprintf("%d", roomID)
+	for _, userID := range userIDs {
+		if _, err := stmtUser.Exec(roomIDStr, userID); err != nil {
+			txUser.Rollback()
+			return err
+		}
+	}
+	if err := txUser.Commit(); err != nil {
+		return err
+	}
+
+	//chatroom table update
 	tableName := fmt.Sprintf("chat_room_members_room_%d", roomID)
 	query := fmt.Sprintf("INSERT INTO %s (user_id) VALUES (?)", tableName)
 	tx, err := mysql.DB.Begin()
@@ -103,4 +140,49 @@ func QueryIsGroupRoom(roomID int64) (bool, error) {
 		return false, err
 	}
 	return isGroup, nil
+}
+
+func IsRoomMember(roomID int64, userID int64) (bool, error) {
+	tableName := fmt.Sprintf("chat_room_members_room_%d", roomID)
+	query := fmt.Sprintf("SELECT COUNT(1) FROM %s WHERE user_id = ?", tableName)
+	var count int
+	err := mysql.DB.QueryRow(query, userID).Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+func IsGroupRoom(roomID int64) (bool, error) {
+	query := "SELECT is_group FROM chat_rooms WHERE id = ?"
+	var isGroup bool
+	err := mysql.DB.QueryRow(query, roomID).Scan(&isGroup)
+	if err != nil {
+		return false, err
+	}
+	return isGroup, nil
+}
+
+func QueryJoinedRooms(userID int64) ([]int64, error) {
+	query := "SELECT joined_chatrooms FROM users WHERE id = ?"
+	var joinedChatrooms sql.NullString
+	err := mysql.DB.QueryRow(query, userID).Scan(&joinedChatrooms)
+	if err != nil {
+		return nil, err
+	}
+	if !joinedChatrooms.Valid || joinedChatrooms.String == "" {
+		return []int64{}, nil
+	}
+	roomIDStrs := strings.Split(joinedChatrooms.String, ",")
+	roomIDs := []int64{}
+	for _, idStr := range roomIDStrs {
+		if idStr == "" {
+			continue
+		}
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		roomIDs = append(roomIDs, id)
+	}
+	return roomIDs, nil
 }
