@@ -1,11 +1,12 @@
 package server
 
 import (
-	"GoStacker/pkg/logger"
-	"GoStacker/pkg/middleware"
-	"GoStacker/internal/ws"
 	"GoStacker/internal/chat"
 	"GoStacker/internal/user"
+	"GoStacker/internal/ws"
+	"GoStacker/pkg/logger"
+	"GoStacker/pkg/middleware"
+	"GoStacker/pkg/response"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,7 +22,7 @@ func NewRouter() *gin.Engine {
 
 	// health check
 	g.GET("/ping", func(c *gin.Context) {
-		c.JSON(200, gin.H{"message": "pong"})
+		response.ReplySuccess(c, "pong")
 	})
 
 	g.POST("/register", user.RegisterHandler)
