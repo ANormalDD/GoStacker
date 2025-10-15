@@ -32,6 +32,14 @@ func WebSocketHandler(c *gin.Context) {
 	userIDInt64 := userID.(int64)
 	push.RegisterConnection(userIDInt64, conn)
 
+	push.PushViaWebSocket(userIDInt64, push.ClientMessage{
+		ID:       -1,
+		Type:     "system",
+		RoomID:   -1,
+		SenderID: -1,
+		Payload:  "Connected to WebSocket server",
+	})
+	push.PushOfflineMessages(userIDInt64)
 	go func() {
 		for {
 			_, _, err := conn.ReadMessage()

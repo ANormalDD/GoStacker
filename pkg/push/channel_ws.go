@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func pushViaWebSocket(userID int64, message PushMessage) error {
+func PushViaWebSocket(userID int64, message ClientMessage) error {
 	conn, exists := GetConnection(userID)
 	if !exists {
 		return fmt.Errorf("no active WebSocket connection for user %d", userID)

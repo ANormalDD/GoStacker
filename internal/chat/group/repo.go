@@ -1,12 +1,12 @@
-package chat
+package group
 
 import (
 	"GoStacker/pkg/db/mysql"
-	"fmt"
-	"time"
-	"strings"
 	"database/sql"
+	"fmt"
 	"strconv"
+	"strings"
+	"time"
 )
 
 func InsertRoom(name string, isGroup bool, creatorID int64) (int64, error) {
@@ -185,4 +185,23 @@ func QueryJoinedRooms(userID int64) ([]int64, error) {
 		roomIDs = append(roomIDs, id)
 	}
 	return roomIDs, nil
+}
+
+func QueryRoomMemberIDs(roomID int64) ([]int64, error) {
+	tableName := fmt.Sprintf("chat_room_members_room_%d", roomID)
+	query := fmt.Sprintf("SELECT user_id FROM %s", tableName)
+	rows, err := mysql.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	memberIDs := []int64{}
+	for rows.Next() {
+		var userID int64
+		if err := rows.Scan(&userID); err != nil {
+			return nil, err
+		}
+		memberIDs = append(memberIDs, userID)
+	}
+	return memberIDs, nil
 }

@@ -1,10 +1,25 @@
 package push
 
-func Dispatch(msg PushMessage) error{
-	for _,uid := range msg.TargetID {
-		err := pushViaWebSocket(uid, msg)
+import (
+	"GoStacker/pkg/db/redis"
+	"encoding/json"
+	"strconv"
+)
+
+func Dispatch(msg PushMessage) error {
+	for _, uid := range msg.TargetIDs {
+		clientMsg := ClientMessage{
+			ID:       msg.ID,
+			Type:     msg.Type,
+			RoomID:   msg.RoomID,
+			SenderID: msg.SenderID,
+			Payload:  msg.Payload,
+		}
+		err := PushViaWebSocket(uid, clientMsg)
 		if err != nil {
-			// log error.Later support offline push via other channels
+			// If WebSocket push fails, fallback to Redis push
+			raw, _ := json.Marshal(clientMsg)
+			redis.Rdb.RPush("offline:push:"+strconv.FormatInt(uid, 10), raw)
 			continue
 		}
 	}

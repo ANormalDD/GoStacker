@@ -1,4 +1,4 @@
-package chat
+package group
 
 import (
 	"GoStacker/pkg/response"

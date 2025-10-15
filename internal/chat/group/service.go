@@ -1,4 +1,4 @@
-package chat
+package group
 
 import (
 	"errors"
@@ -40,7 +40,7 @@ func CreateRoom(name string, isGroup bool, creatorID int64, memberIDs []int64) (
 }
 
 func AddRoomMembers(roomID int64, userIDs []int64, requestUserID int64) error {
-	
+
 	isGroup, err := QueryIsGroupRoom(roomID)
 	if err != nil {
 		return err
@@ -60,7 +60,7 @@ func AddRoomMembers(roomID int64, userIDs []int64, requestUserID int64) error {
 }
 
 func AddRoomMember(roomID int64, userID int64, requestUserID int64) error {
-	
+
 	isGroup, err := QueryIsGroupRoom(roomID)
 	if err != nil {
 		return err
@@ -68,7 +68,7 @@ func AddRoomMember(roomID int64, userID int64, requestUserID int64) error {
 	if !isGroup {
 		return errors.New("cannot add members to a private chat")
 	}
-	
+
 	requestUserRole, err := QueryMemberRole(roomID, requestUserID)
 	if err != nil {
 		return err
@@ -106,7 +106,7 @@ func RemoveRoomMember(roomID int64, targetUserID int64, requestUserID int64) err
 }
 
 func MuteMember(roomID int64, targetUserID int64, muteUntil time.Time, requestUserID int64) error {
-	isGroupRoom , err := QueryIsGroupRoom(roomID)
+	isGroupRoom, err := QueryIsGroupRoom(roomID)
 	if err != nil {
 		return err
 	}

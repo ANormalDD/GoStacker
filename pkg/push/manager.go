@@ -1,28 +1,25 @@
 package push
 
 import (
-	"github.com/gorilla/websocket"
 	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
-var connMap = make(map[int64]*websocket.Conn)
-var connLock sync.RWMutex
+var connMap sync.Map // key: int64, value: *websocket.Conn
 
 func RegisterConnection(userID int64, conn *websocket.Conn) {
-	connLock.Lock()
-	defer connLock.Unlock()
-	connMap[userID] = conn
+	connMap.Store(userID, conn)
 }
 
 func RemoveConnection(userID int64) {
-	connLock.Lock()
-	defer connLock.Unlock()
-	delete(connMap, userID)
+	connMap.Delete(userID)
 }
 
 func GetConnection(userID int64) (*websocket.Conn, bool) {
-	connLock.RLock()
-	defer connLock.RUnlock()
-	conn, exists := connMap[userID]
-	return conn, exists
+	val, ok := connMap.Load(userID)
+	if !ok {
+		return nil, false
+	}
+	return val.(*websocket.Conn), true
 }

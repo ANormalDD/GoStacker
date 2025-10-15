@@ -1,7 +1,7 @@
 package server
 
 import (
-	"GoStacker/internal/chat"
+	"GoStacker/internal/chat/group"
 	"GoStacker/internal/user"
 	"GoStacker/internal/ws"
 	"GoStacker/pkg/logger"
@@ -29,7 +29,12 @@ func NewRouter() *gin.Engine {
 	g.POST("/login", user.LoginHandler)
 	auth := g.Group("/api", middleware.JWTAuthMiddleware())
 	{
-		auth.POST("/chat/create", chat.CreateRoomHandler)
+		auth.POST("/chat/group/create", group.CreateRoomHandler)
+		auth.POST("/chat/group/add_member", group.AddRoomMemberHandler)
+		auth.POST("/chat/group/add_members", group.AddRoomMembersHandler)
+		auth.POST("/chat/group/change_nickname", group.ChangeNicknameHandler)
+		auth.POST("/chat/group/change_member_role", group.ChangeMemberRoleHandler)
+		auth.POST("/chat/group/remove_member", group.RemoveMemberHandler)
 		auth.GET("/ws", ws.WebSocketHandler)
 	}
 

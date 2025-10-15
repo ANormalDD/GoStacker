@@ -34,3 +34,10 @@
 {"level":"INFO","time":"2025-10-08T23:54:37.216+0800","caller":"logger/logger.go:68","msg":"/register","status":500,"method":"POST","path":"/register","query":"","ip":"127.0.0.1","user-agent":"PostmanRuntime/7.48.0","errors":"","cost":0.0571063}
 {"level":"INFO","time":"2025-10-08T23:55:35.324+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"PostmanRuntime/7.48.0","errors":"","cost":0.0651203}
 {"level":"INFO","time":"2025-10-08T23:56:27.944+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"PostmanRuntime/7.48.0","errors":"","cost":0.0549069}
+{"level":"INFO","time":"2025-10-15T18:57:33.229+0800","caller":"server/init.go:20","msg":"server run","addr":":8081"}
+{"level":"INFO","time":"2025-10-15T18:58:38.842+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0676637}
+{"level":"INFO","time":"2025-10-15T19:00:05.169+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0522898}
+{"level":"INFO","time":"2025-10-15T19:00:08.129+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":0.0001636}
+{"level":"INFO","time":"2025-10-15T19:10:27.931+0800","caller":"server/init.go:20","msg":"server run","addr":":8081"}
+{"level":"INFO","time":"2025-10-15T19:10:42.132+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0535657}
+{"level":"INFO","time":"2025-10-15T19:10:44.492+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":0}

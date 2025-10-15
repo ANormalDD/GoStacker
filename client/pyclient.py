@@ -34,9 +34,10 @@ def login(base):
     try:
         obj = r.json()
         print(json.dumps(obj, indent=2, ensure_ascii=False))
-        if "token" in obj:
+        data = obj.get("data", {})
+        if "token" in data:
             print("登录成功！")
-            return obj["token"]
+            return data["token"]
     except Exception:
         print(r.text)
     return None
@@ -145,7 +146,7 @@ def main_loop(base):
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="GoStacker 交互式 CLI 客户端 (python)")
-    parser.add_argument("--backend", default="http://localhost:8080", help="backend base url")
+    parser.add_argument("--backend", default="http://localhost:8081", help="backend base url")
     args = parser.parse_args()
     main_loop(args.backend)
 
