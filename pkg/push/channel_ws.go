@@ -7,7 +7,7 @@ import (
 func PushViaWebSocket(userID int64, message ClientMessage) error {
 	conn, exists := GetConnection(userID)
 	if !exists {
-		return fmt.Errorf("no active WebSocket connection for user %d", userID)
+		return fmt.Errorf("no conn for user %d", userID)
 	}
 	lock, _ := GetConnectionLock(userID)
 	lock.Lock()

@@ -1,6 +1,7 @@
 package push
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -13,20 +14,30 @@ var connLocks sync.Map // key: int64, value: *sync.Mutex
 func RegisterConnection(userID int64, conn *websocket.Conn) {
 	//check old connection
 	if oldConn, exists := GetConnection(userID); exists {
+		lock, _ := GetConnectionLock(userID)
+		lock.Lock()
 		oldConn.Close()
+		lock.Unlock()
+		//释放旧连接和锁的资源
+		lock = nil
+		oldConn = nil
 	}
 	connMap.Store(userID, conn)
 	connLocks.Store(userID, &sync.Mutex{})
 }
 
-func RemoveConnection(userID int64) {
-	lock, _ := GetConnectionLock(userID)
+func RemoveConnection(userID int64) error {
+	lock, exists := GetConnectionLock(userID)
+	if !exists {
+		return errors.New("no conn for user")
+	}
 	lock.Lock()
 	defer lock.Unlock()
 	conn, _ := GetConnection(userID)
 	conn.Close()
 	connMap.Delete(userID)
 	connLocks.Delete(userID)
+	return nil
 }
 
 func GetConnection(userID int64) (*websocket.Conn, bool) {

@@ -2,6 +2,11 @@ package push
 
 import (
 	"GoStacker/pkg/db/redis"
+	"fmt"
+
+	Redis "github.com/go-redis/redis"
+	"go.uber.org/zap"
+
 	"encoding/json"
 	"strconv"
 )
@@ -11,8 +16,12 @@ func PushOfflineMessages(userID int64) {
 	for {
 		msg, err := redis.Rdb.LPop("offline:push:" + strconv.FormatInt(userID, 10)).Result()
 		if err != nil {
-			//repush to redis
-
+			if err == Redis.Nil {
+				// No more messages
+				break
+			}
+			// Log the error and break to avoid infinite loop
+			zap.L().Error("Failed to LPop offline message", zap.Int64("userID", userID), zap.Error(err))
 			break
 		}
 		var clientMsg ClientMessage
@@ -21,9 +30,11 @@ func PushOfflineMessages(userID int64) {
 		}
 		err = PushViaWebSocket(userID, clientMsg)
 		if err != nil {
-			// If WebSocket push fails, fallback to Redis push
 			raw, _ := json.Marshal(clientMsg)
-			redis.Rdb.LPush("offline:push:"+strconv.FormatInt(userID, 10), raw)
+			redis.Rdb.RPush("offline:push:"+strconv.FormatInt(userID, 10), raw)
+			if err == fmt.Errorf("no conn for user %d", userID) {
+				break
+			}
 		}
 	}
 }
