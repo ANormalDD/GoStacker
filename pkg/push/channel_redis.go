@@ -12,13 +12,18 @@ func PushOfflineMessages(userID int64) {
 		msg, err := redis.Rdb.LPop("offline:push:" + strconv.FormatInt(userID, 10)).Result()
 		if err != nil {
 			//repush to redis
-			redis.Rdb.LPush("offline:push:"+strconv.FormatInt(userID, 10), msg)
+
 			break
 		}
 		var clientMsg ClientMessage
 		if err := json.Unmarshal([]byte(msg), &clientMsg); err != nil {
 			continue
 		}
-		PushViaWebSocket(userID, clientMsg)
+		err = PushViaWebSocket(userID, clientMsg)
+		if err != nil {
+			// If WebSocket push fails, fallback to Redis push
+			raw, _ := json.Marshal(clientMsg)
+			redis.Rdb.LPush("offline:push:"+strconv.FormatInt(userID, 10), raw)
+		}
 	}
 }
