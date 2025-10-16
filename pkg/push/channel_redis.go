@@ -28,13 +28,33 @@ func PushOfflineMessages(userID int64) {
 			return
 		}
 	}
-	var tryTimes int64 = 0
-	for {
-		tryTimes++
-		if tryTimes > lenOfList*3 {
-			break
+	var messages []ClientMessage
+	var msg string
+	var batchSize int = 50
+	var nowSize int = 0
+	for i := int64(0); i < lenOfList; i++ {
+		if nowSize >= batchSize {
+			// push current batch
+			err = PushViaWSWithRetry(userID, 2, 10*time.Second, ClientMessage{
+				ID:      -1,
+				Type:    "batch",
+				Payload: messages,
+			})
+			if err != nil {
+				raw, _ := json.Marshal(messages)
+				err2 := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10), raw)
+				if err2 != nil {
+					zap.L().Error("Failed to RPush offline message back .Message missed", zap.Int64("userID", userID), zap.Error(err2))
+				}
+				if err != ErrNoConn {
+					RemoveConnection(userID)
+				}
+			}
+			// reset batch
+			messages = []ClientMessage{}
+			nowSize = 0
 		}
-		msg, err := redis.Rdb.LPop("offline:push:" + strconv.FormatInt(userID, 10)).Result()
+		msg, err = redis.LPopWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10))
 		if err != nil {
 			if err == Redis.Nil {
 				// No more messages
@@ -42,27 +62,37 @@ func PushOfflineMessages(userID int64) {
 			}
 			// Log the error and break to avoid infinite loop
 			zap.L().Error("Failed to LPop offline message", zap.Int64("userID", userID), zap.Error(err))
+			//info client that there are offline messages but failed to get them
+			err = PushViaWSWithRetry(userID, 2, 10*time.Second, ClientMessage{
+				ID:      -1,
+				Type:    "info",
+				Payload: "You have offline messages but failed to retrieve them.",
+			})
+
+			if err != nil && err != ErrNoConn {
+				zap.L().Error("Failed to push offline message info", zap.Int64("userID", userID), zap.Error(err))
+				RemoveConnection(userID)
+			}
+
 			break
 		}
 		var clientMsg ClientMessage
 		if err := json.Unmarshal([]byte(msg), &clientMsg); err != nil {
 			continue
 		}
-		err = PushViaWebSocket(userID, clientMsg)
+		messages = append(messages, clientMsg)
+	}
+	if len(messages) > 0 {
+		err = PushViaWSWithRetry(userID, 2, 10*time.Second, ClientMessage{
+			ID:      -1,
+			Type:    "batch",
+			Payload: messages,
+		})
 		if err != nil {
-			raw, _ := json.Marshal(clientMsg)
-			err2 := redis.Rdb.LPush("offline:push:"+strconv.FormatInt(userID, 10), raw).Err()
+			raw, _ := json.Marshal(messages)
+			err2 := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10), raw)
 			if err2 != nil {
-				zap.L().Error("Failed to LPush offline message back", zap.Int64("userID", userID), zap.Error(err2))
-				//wait before retry
-				time.Sleep(100 * time.Millisecond)
-				err2 = redis.Rdb.LPush("offline:push:"+strconv.FormatInt(userID, 10), raw).Err()
-				if err2 != nil {
-					zap.L().Error("Failed to LPush offline message back again, giving up", zap.Int64("userID", userID), zap.Error(err2))
-				}
-			}
-			if err == ErrNoConn {
-				break
+				zap.L().Error("Failed to RPush offline message back .Message missed", zap.Int64("userID", userID), zap.Error(err2))
 			}
 		}
 	}

@@ -32,19 +32,16 @@ func Dispatch(msg PushMessage) error {
 	for _, uid := range msg.TargetIDs {
 		clientMsg.ID = msg.ID
 		go func(uid int64, clientMsg ClientMessage) {
-			err := PushViaWebSocket(uid, clientMsg)
+			err := PushViaWSWithRetry(uid, 2, 10*time.Second, clientMsg)
 			if err != nil {
 				// If WebSocket push fails, fallback to Redis push
 				raw, _ := json.Marshal(clientMsg)
-				err2 := redis.Rdb.RPush("offline:push:"+strconv.FormatInt(uid, 10), raw)
+				err2 := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(uid, 10), raw)
 				if err2 != nil {
-					zap.L().Error("Failed to RPush offline message", zap.Int64("userID", uid), zap.Error(err2.Err()))
+					zap.L().Error("Failed to RPush offline message. Message missed", zap.Int64("userID", uid), zap.Error(err2))
 				}
-				//retry once
-				time.Sleep(100 * time.Millisecond)
-				err2 = redis.Rdb.RPush("offline:push:"+strconv.FormatInt(uid, 10), raw)
-				if err2 != nil {
-					zap.L().Error("Failed to RPush offline message again, giving up", zap.Int64("userID", uid), zap.Error(err2.Err()))
+				if err != ErrNoConn {
+					RemoveConnection(uid)
 				}
 			}
 		}(uid, clientMsg)

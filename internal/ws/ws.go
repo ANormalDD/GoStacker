@@ -33,7 +33,7 @@ func WebSocketHandler(c *gin.Context) {
 	userIDInt64 := userID.(int64)
 	push.RegisterConnection(userIDInt64, conn)
 
-	push.PushViaWebSocket(userIDInt64, push.ClientMessage{
+	push.PushViaWS(userIDInt64, 10*time.Second, push.ClientMessage{
 		ID:       -1,
 		Type:     "system",
 		RoomID:   -1,
@@ -41,20 +41,48 @@ func WebSocketHandler(c *gin.Context) {
 		Payload:  "Connected to WebSocket server",
 	})
 	push.PushOfflineMessages(userIDInt64)
-	//heartbeat
+	// heartbeat: use pong handler to extend read deadline and periodic pings
+	const (
+		pongWait   = 60 * time.Second
+		pingPeriod = (pongWait * 9) / 10 // send pings slightly before pong timeout
+		writeWait  = 10 * time.Second
+	)
+
+	// set initial read deadline and pong handler
+	conn.SetReadDeadline(time.Now().Add(pongWait))
+	conn.SetPongHandler(func(appData string) error {
+		// extend read deadline on pong
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
 	go func() {
-		ticker := time.NewTicker(30 * time.Second)
+		ticker := time.NewTicker(pingPeriod)
 		defer ticker.Stop()
-		for {
-			<-ticker.C
-			lock, _ := push.GetConnectionLock(userIDInt64)
-			lock.Lock()
-			err := conn.WriteMessage(websocket.PingMessage, []byte{})
-			lock.Unlock()
+
+		for range ticker.C {
+			holder, ok := push.GetConnectionHolder(userIDInt64)
+			if !ok {
+				zap.L().Warn("Connection holder not found during heartbeat", zap.Int64("userID", userIDInt64))
+				continue
+			}
+
+			err := push.WriteJSONSafe(holder, writeWait, websocket.PingMessage)
+
 			if err != nil {
-				zap.L().Error("Failed to send ping", zap.Error(err))
-				push.RemoveConnection(userIDInt64)
-				return
+				if err == push.ErrNoConn {
+					zap.L().Info("Connection closed, stopping heartbeat", zap.Int64("userID", userIDInt64))
+					return
+				}
+				zap.L().Error("Failed to send ping", zap.Int64("userID", userIDInt64), zap.Error(err))
+				// one quick retry
+				time.Sleep(100 * time.Millisecond)
+				err = push.WriteJSONSafe(holder, writeWait, websocket.PingMessage)
+				if err != nil {
+					zap.L().Error("Ping retry failed, removing connection", zap.Int64("userID", userIDInt64), zap.Error(err))
+					push.RemoveConnection(userIDInt64)
+					return
+				}
 			}
 		}
 	}()

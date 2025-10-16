@@ -31,4 +31,7 @@ redis:
 jwt:
   secret: "your_jwt_secret_key"
   expire_duration: 7200 # in seconds
-  
+
+ws:
+  max_write_wait: 10 # in seconds
+  max_read_wait: 60  # in seconds
