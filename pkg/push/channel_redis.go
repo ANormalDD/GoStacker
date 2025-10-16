@@ -11,6 +11,8 @@ func PushOfflineMessages(userID int64) {
 	for {
 		msg, err := redis.Rdb.LPop("offline:push:" + strconv.FormatInt(userID, 10)).Result()
 		if err != nil {
+			//repush to redis
+			redis.Rdb.LPush("offline:push:"+strconv.FormatInt(userID, 10), msg)
 			break
 		}
 		var clientMsg ClientMessage

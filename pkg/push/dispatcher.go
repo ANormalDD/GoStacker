@@ -15,13 +15,16 @@ func Dispatch(msg PushMessage) error {
 			SenderID: msg.SenderID,
 			Payload:  msg.Payload,
 		}
-		err := PushViaWebSocket(uid, clientMsg)
-		if err != nil {
-			// If WebSocket push fails, fallback to Redis push
-			raw, _ := json.Marshal(clientMsg)
-			redis.Rdb.RPush("offline:push:"+strconv.FormatInt(uid, 10), raw)
-			continue
-		}
+		//创建一个线程调用push
+		go func() {
+			err := PushViaWebSocket(uid, clientMsg)
+			if err != nil {
+				// If WebSocket push fails, fallback to Redis push
+				raw, _ := json.Marshal(clientMsg)
+				redis.Rdb.RPush("offline:push:"+strconv.FormatInt(uid, 10), raw)
+			}
+		}()
+		continue
 	}
 	return nil
 }

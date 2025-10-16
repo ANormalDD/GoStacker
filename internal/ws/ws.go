@@ -3,6 +3,7 @@ package ws
 import (
 	"GoStacker/pkg/push"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -40,14 +41,30 @@ func WebSocketHandler(c *gin.Context) {
 		Payload:  "Connected to WebSocket server",
 	})
 	push.PushOfflineMessages(userIDInt64)
+	//heartbeat
 	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
 		for {
-			_, _, err := conn.ReadMessage()
+			<-ticker.C
+			lock, _ := push.GetConnectionLock(userIDInt64)
+			lock.Lock()
+			err := conn.WriteMessage(websocket.PingMessage, []byte{})
+			lock.Unlock()
 			if err != nil {
+				zap.L().Error("Failed to send ping", zap.Error(err))
 				push.RemoveConnection(userIDInt64)
-				conn.Close()
-				break
+				return
 			}
 		}
 	}()
+	//read loop
+	for {
+		_, _, err := conn.ReadMessage()
+		if err != nil {
+			break
+		}
+	}
+	push.RemoveConnection(userIDInt64)
+	zap.L().Info("WebSocket connection closed", zap.Int64("userID", userIDInt64))
 }
