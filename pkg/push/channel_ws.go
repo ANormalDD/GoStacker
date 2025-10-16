@@ -1,13 +1,9 @@
 package push
 
-import (
-	"fmt"
-)
-
 func PushViaWebSocket(userID int64, message ClientMessage) error {
 	conn, exists := GetConnection(userID)
 	if !exists {
-		return fmt.Errorf("no conn for user %d", userID)
+		return ErrNoConn
 	}
 	lock, _ := GetConnectionLock(userID)
 	lock.Lock()
