@@ -5,6 +5,7 @@ import (
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/db/mysql"
 	"GoStacker/pkg/logger"
+	"GoStacker/pkg/push"
 	"GoStacker/pkg/utils"
 	"fmt"
 
@@ -29,6 +30,7 @@ func main() {
 	}
 	defer mysql.Close()
 	utils.SetJWTConfig(config.Conf.JWTConfig)
+	push.InitDispatcher(config.Conf.DispatcherConfig)
 	server.Start()
 
 	defer zap.L().Info("service exit")

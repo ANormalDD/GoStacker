@@ -21,6 +21,7 @@ type AppConfig struct {
 	*MySQLConfig `mapstructure:"mysql"`
 	*RedisConfig `mapstructure:"redis"`
 	*JWTConfig   `mapstructure:"jwt"`
+	*DispatcherConfig `mapstructure:"dispatcher"`
 }
 
 type LogConfig struct {
@@ -51,6 +52,11 @@ type RedisConfig struct {
 type JWTConfig struct {
 	Secret         string `mapstructure:"secret"`
 	ExpireDuration int    `mapstructure:"expire_duration"`
+}
+
+type DispatcherConfig struct {
+	WorkerCount   int `mapstructure:"worker_count"`
+	TaskQueueSize int `mapstructure:"task_queue_size"`
 }
 
 func Init() (err error) {

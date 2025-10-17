@@ -35,3 +35,7 @@ jwt:
 ws:
   max_write_wait: 10 # in seconds
   max_read_wait: 60  # in seconds
+
+dispatcher:
+  worker_count: 20
+  task_queue_size: 1000

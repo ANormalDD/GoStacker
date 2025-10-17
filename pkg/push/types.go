@@ -16,3 +16,9 @@ type ClientMessage struct {
 	SenderID int64       `json:"sender_id"`
 	Payload  interface{} `json:"payload"`
 }
+
+type PushTask struct {
+	UserID int64
+	MarshaledMsg []byte
+	Msg    ClientMessage
+}

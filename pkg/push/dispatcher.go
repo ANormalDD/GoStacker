@@ -1,6 +1,7 @@
 package push
 
 import (
+	"GoStacker/pkg/config"
 	"GoStacker/pkg/db/redis"
 	"encoding/json"
 	"strconv"
@@ -9,44 +10,55 @@ import (
 	"go.uber.org/zap"
 )
 
-// TODO1: 优化点，创建一个goroutine池，限制最大并发数，防止过多的goroutine导致系统资源耗尽
-// TODO2: 优化点，增加重试机制，防止偶发的网络问题导致消息发送失败
-// TODO3: 优化点，增加消息发送的超时机制，防止某些用户长时间不响应导致阻塞
+var PushTaskChan chan PushTask = make(chan PushTask, 1000)
+
+func StartPushDispatcher(Conf *config.DispatcherConfig) {
+	PushTaskChan = make(chan PushTask, Conf.TaskQueueSize)
+	for i := 0; i < Conf.WorkerCount; i++ {
+		go func() {
+			for task := range PushTaskChan {
+				err := PushViaWSWithRetry(task.UserID, 2, 10*time.Second, task.Msg)
+				if err != nil {
+					// If WebSocket push fails, fallback to Redis push
+
+					err2 := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(task.UserID, 10), task.MarshaledMsg)
+					if err2 != nil {
+						zap.L().Error("Failed to RPush offline message. Message missed", zap.Int64("userID", task.UserID), zap.Error(err2))
+					}
+					if err != ErrNoConn {
+						RemoveConnection(task.UserID)
+					}
+				}
+			}
+		}()
+	}
+}
+
 func Dispatch(msg PushMessage) error {
 
 	clientMsg := ClientMessage{
-		ID:       -1,
+		ID:       msg.ID,
 		Type:     msg.Type,
 		RoomID:   msg.RoomID,
 		SenderID: msg.SenderID,
 		Payload:  msg.Payload,
 	}
 
-	_, err := json.Marshal(clientMsg)
-
+	marshaledMsg, err := json.Marshal(clientMsg)
 	if err != nil {
 		zap.L().Error("Failed to marshal client message", zap.Error(err), zap.Any("message", clientMsg))
 		return err
 	}
-
 	for _, uid := range msg.TargetIDs {
-		clientMsg.ID = msg.ID
-		go func(uid int64, clientMsg ClientMessage) {
-			err := PushViaWSWithRetry(uid, 2, 10*time.Second, clientMsg)
-			if err != nil {
-				// If WebSocket push fails, fallback to Redis push
-				raw, _ := json.Marshal(clientMsg)
-				err2 := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(uid, 10), raw)
-				if err2 != nil {
-					zap.L().Error("Failed to RPush offline message. Message missed", zap.Int64("userID", uid), zap.Error(err2))
-				}
-				if err != ErrNoConn {
-					RemoveConnection(uid)
-				}
-			}
-		}(uid, clientMsg)
-		continue
+		PushTaskChan <- PushTask{
+			UserID:       uid,
+			Msg:          clientMsg,
+			MarshaledMsg: marshaledMsg,
+		}
 	}
-
 	return nil
+}
+
+func InitDispatcher(Conf *config.DispatcherConfig) {
+	StartPushDispatcher(Conf)
 }
