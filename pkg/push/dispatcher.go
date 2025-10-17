@@ -3,8 +3,13 @@ package push
 import (
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/db/redis"
+	"context"
 	"encoding/json"
+	"os"
+	"os/signal"
 	"strconv"
+	"sync"
+	"syscall"
 	"time"
 
 	"go.uber.org/zap"
@@ -12,22 +17,43 @@ import (
 
 var PushTaskChan chan PushTask = make(chan PushTask, 1000)
 
-func StartPushDispatcher(Conf *config.DispatcherConfig) {
+var dispatcherCtx context.Context
+var dispatcherCancel context.CancelFunc
+var dispatcherWg sync.WaitGroup
+
+func startPushDispatcher(Conf *config.DispatcherConfig) {
 	PushTaskChan = make(chan PushTask, Conf.TaskQueueSize)
 	for i := 0; i < Conf.WorkerCount; i++ {
+		dispatcherWg.Add(1)
 		go func() {
-			for task := range PushTaskChan {
-				err := PushViaWSWithRetry(task.UserID, 2, 10*time.Second, task.Msg)
-				if err != nil {
-					// If WebSocket push fails, fallback to Redis push
-
-					err2 := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(task.UserID, 10), task.MarshaledMsg)
-					if err2 != nil {
-						zap.L().Error("Failed to RPush offline message. Message missed", zap.Int64("userID", task.UserID), zap.Error(err2))
+			defer dispatcherWg.Done()
+			for {
+				select {
+				case <-dispatcherCtx.Done():
+					return
+				case task, ok := <-PushTaskChan:
+					if !ok {
+						return
 					}
-					if err != ErrNoConn {
-						RemoveConnection(task.UserID)
-					}
+					// protect each task processing so a panic doesn't kill the worker
+					func() {
+						defer func() {
+							if r := recover(); r != nil {
+								zap.L().Error("Panic recovered in push worker", zap.Any("recover", r))
+							}
+						}()
+						err := PushViaWSWithRetry(task.UserID, 2, 10*time.Second, task.Msg)
+						if err != nil {
+							// If WebSocket push fails, fallback to Redis push
+							err2 := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(task.UserID, 10), task.MarshaledMsg)
+							if err2 != nil {
+								zap.L().Error("Failed to RPush offline message. Message missed", zap.Int64("userID", task.UserID), zap.Error(err2))
+							}
+							if err != ErrNoConn {
+								RemoveConnection(task.UserID)
+							}
+						}
+					}()
 				}
 			}
 		}()
@@ -50,15 +76,72 @@ func Dispatch(msg PushMessage) error {
 		return err
 	}
 	for _, uid := range msg.TargetIDs {
-		PushTaskChan <- PushTask{
+		select {
+		case PushTaskChan <- PushTask{
 			UserID:       uid,
 			Msg:          clientMsg,
 			MarshaledMsg: marshaledMsg,
+		}:
+		default:
+			{
+				// 推送到redis等待队列,并记录
+				err2 := redis.SAddWithRetry(2, "wait:push:set", strconv.FormatInt(uid, 10))
+				if err2 != nil {
+					zap.L().Error("PushTaskChan full, failed to SAdd wait push userID. Message missed", zap.Int64("userID", uid), zap.Error(err2))
+					continue
+				}
+				err2 = redis.RPushWithRetry(2, "wait:push:"+strconv.FormatInt(uid, 10), marshaledMsg)
+				if err2 != nil {
+					zap.L().Error("PushTaskChan full, failed to RPush wait push message. Message missed", zap.Int64("userID", uid), zap.Error(err2))
+				}
+			}
+
 		}
 	}
 	return nil
 }
 
+func panicHandler() {
+	if r := recover(); r != nil {
+		zap.L().Error("Panic recovered in push dispatcher", zap.Any("recover", r))
+	}
+}
+
+func waitForShutdown() {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	zap.L().Info("Push dispatcher shutdown signal received, canceling dispatcher context")
+	if dispatcherCancel != nil {
+		dispatcherCancel()
+	}
+	// drain buffered tasks in PushTaskChan back to Redis wait queues to avoid message loss
+	zap.L().Info("Draining PushTaskChan to Redis")
+	for {
+		select {
+		case task := <-PushTaskChan:
+			// write back to wait queue per user
+			uidStr := strconv.FormatInt(task.UserID, 10)
+			if err := redis.SAddWithRetry(2, "wait:push:set", uidStr); err != nil {
+				zap.L().Error("Failed to SAdd wait push userID during shutdown", zap.Int64("userID", task.UserID), zap.Error(err))
+			}
+			if err := redis.RPushWithRetry(2, "wait:push:"+uidStr, task.MarshaledMsg); err != nil {
+				zap.L().Error("Failed to RPush wait push message during shutdown. Message missed", zap.Int64("userID", task.UserID), zap.Error(err))
+			}
+		default:
+			// channel drained
+			goto afterDrain
+		}
+	}
+afterDrain:
+	// wait for workers to exit
+	dispatcherWg.Wait()
+	zap.L().Info("Push dispatcher workers exited")
+}
+
 func InitDispatcher(Conf *config.DispatcherConfig) {
-	StartPushDispatcher(Conf)
+	dispatcherCtx, dispatcherCancel = context.WithCancel(context.Background())
+	startPushDispatcher(Conf)
+	go waitForShutdown()
+	go ListeningWaitQueue()
 }

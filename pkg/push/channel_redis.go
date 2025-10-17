@@ -97,3 +97,91 @@ func PushOfflineMessages(userID int64) {
 		}
 	}
 }
+func ListeningWaitQueue() {
+	// 轮询等待队列，如果有消息且 PushTaskChan 负载在 80% 以下则取出消息进行推送
+	for {
+		// exit promptly if dispatcher is shutting down
+		select {
+		case <-dispatcherCtx.Done():
+			zap.L().Info("ListeningWaitQueue exiting due to dispatcher shutdown")
+			return
+		default:
+		}
+
+		// Use SSCAN to iterate the set in pages to avoid fetching all members at once
+		var cursor uint64 = 0
+		var pageSize int64 = 100
+		for {
+			members, nextCursor, err := redis.SScanWithRetry(2, "wait:push:set", cursor, "", pageSize)
+			if err != nil {
+				zap.L().Error("Failed to SScan wait push set", zap.Error(err))
+				break
+			}
+			for _, uidStr := range members {
+				// check shutdown signal inside the inner loop as well
+				select {
+				case <-dispatcherCtx.Done():
+					zap.L().Info("ListeningWaitQueue exiting due to dispatcher shutdown")
+					return
+				default:
+				}
+				uid, err := strconv.ParseInt(uidStr, 10, 64)
+				if err != nil {
+					continue
+				}
+				queueLen := len(PushTaskChan)
+				if queueLen < cap(PushTaskChan)*8/10 {
+					// pop message from wait queue
+					msgStr, err := redis.LPopWithRetry(2, "wait:push:"+uidStr)
+					if err != nil {
+						if err != Redis.Nil {
+							zap.L().Error("Failed to LPop wait push message", zap.Int64("userID", uid), zap.Error(err))
+						}
+						continue
+					}
+					var clientMsg ClientMessage
+					if err := json.Unmarshal([]byte(msgStr), &clientMsg); err != nil {
+						continue
+					}
+					// send to PushTaskChan
+					select {
+					case PushTaskChan <- PushTask{
+						UserID:       uid,
+						Msg:          clientMsg,
+						MarshaledMsg: []byte(msgStr),
+					}:
+					default:
+						// push back to wait queue
+						err2 := redis.RPushWithRetry(2, "wait:push:"+uidStr, msgStr)
+						if err2 != nil {
+							zap.L().Error("Failed to RPush wait push message back. Message missed", zap.Int64("userID", uid), zap.Error(err2))
+						}
+						goto QUEUEBUSY
+					}
+					// if wait queue is empty remove from set
+					lenOfWaitQueue, err := redis.Rdb.LLen("wait:push:" + uidStr).Result()
+					if err != nil {
+						if err != Redis.Nil {
+							zap.L().Error("Failed to get length of wait push queue", zap.Int64("userID", uid), zap.Error(err))
+							continue
+						}
+						continue
+					}
+					if lenOfWaitQueue == 0 {
+						err = redis.Rdb.SRem("wait:push:set", uidStr).Err()
+						if err != nil {
+							zap.L().Error("Failed to remove userID from wait push set", zap.Int64("userID", uid), zap.Error(err))
+						}
+					}
+				}
+			}
+		QUEUEBUSY:
+			if nextCursor == 0 {
+				break
+			}
+			cursor = nextCursor
+			time.Sleep(1000 * time.Millisecond)
+		}
+
+	}
+}
