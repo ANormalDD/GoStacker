@@ -4,6 +4,7 @@ import (
 	"GoStacker/cmd/server"
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/db/mysql"
+	"GoStacker/pkg/db/redis"
 	"GoStacker/pkg/logger"
 	"GoStacker/pkg/push"
 	"GoStacker/pkg/utils"
@@ -29,6 +30,11 @@ func main() {
 		return
 	}
 	defer mysql.Close()
+	if err := redis.Init(config.Conf.RedisConfig); err != nil {
+		zap.L().Fatal("init redis failed", zap.Error(err))
+		return
+	}
+	defer redis.Close()
 	utils.SetJWTConfig(config.Conf.JWTConfig)
 	push.InitDispatcher(config.Conf.DispatcherConfig)
 	server.Start()

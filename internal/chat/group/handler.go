@@ -51,6 +51,13 @@ func CreateRoomHandler(c *gin.Context) {
 		return
 	}
 	userID = userID.(int64)
+	roomID, err := CreateRoom(req.Name, req.IsGroup, userID.(int64), append(req.MemberIDs, userID.(int64)))
+	if err != nil {
+		response.ReplyError500(c, err.Error())
+		return
+	}
+	response.ReplySuccessWithData(c, "Chat room created successfully", gin.H{"room_id": roomID})
+
 }
 
 func AddRoomMemberHandler(c *gin.Context) {

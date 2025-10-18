@@ -2,13 +2,15 @@ package send
 
 import (
 	"GoStacker/pkg/response"
+	"encoding/json"
 
 	"github.com/gin-gonic/gin"
 )
 
+// 使用 RawMessage 接收 content，后续按 type 字段反序列化为具体 ChatPayload
 type SendMessageRequest struct {
-	RoomID  int64       `json:"room_id" binding:"required"`
-	Content ChatPayload `json:"content" binding:"required"`
+	RoomID  int64           `json:"room_id" binding:"required"`
+	Content json.RawMessage `json:"content" binding:"required"`
 }
 
 type RecallMessageRequest struct {
@@ -27,7 +29,15 @@ func SendMessageHandler(c *gin.Context) {
 		return
 	}
 	userID := id.(int64)
-	err := SendMessage(req.RoomID, userID, req.Content)
+
+	// 将 raw content 解析为具体的 ChatPayload
+	payload, err := UnmarshalChatPayload(req.Content)
+	if err != nil {
+		response.ReplyBadRequest(c, "Invalid content: "+err.Error())
+		return
+	}
+
+	err = SendMessage(req.RoomID, userID, payload)
 	if err != nil {
 		response.ReplyError500(c, err.Error())
 		return

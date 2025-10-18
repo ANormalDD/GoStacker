@@ -2,7 +2,9 @@ package ws
 
 import (
 	"GoStacker/pkg/push"
+	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -64,6 +66,7 @@ func WebSocketHandler(c *gin.Context) {
 			holder, ok := push.GetConnectionHolder(userIDInt64)
 			if !ok {
 				zap.L().Warn("Connection holder not found during heartbeat", zap.Int64("userID", userIDInt64))
+
 				continue
 			}
 
@@ -86,10 +89,38 @@ func WebSocketHandler(c *gin.Context) {
 			}
 		}
 	}()
-	//read loop
+	// read loop: classify errors so transient issues (like timeouts) don't always log as fatal
 	for {
 		_, _, err := conn.ReadMessage()
 		if err != nil {
+			// websocket close errors from the peer
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				zap.L().Info("WebSocket closed by peer", zap.Int64("userID", userIDInt64), zap.Error(err))
+				break
+			}
+
+			// network timeout (read deadline) or temporary network errors
+			if ne, ok := err.(net.Error); ok {
+				if ne.Timeout() {
+					// read deadline exceeded — connection considered stale; info level and break to cleanup
+					zap.L().Info("WebSocket read timeout (deadline exceeded)", zap.Int64("userID", userIDInt64), zap.Error(err))
+					break
+				}
+				if ne.Temporary() {
+					// temporary network error — warn but continue loop to attempt to read again
+					zap.L().Warn("Temporary network error while reading WebSocket message", zap.Int64("userID", userIDInt64), zap.Error(err))
+					continue
+				}
+			}
+
+			// gorilla websocket may return unexpected EOF or use text in error string
+			if strings.Contains(err.Error(), "use of closed network connection") || strings.Contains(err.Error(), "EOF") {
+				zap.L().Info("WebSocket connection closed (EOF/closed network)", zap.Int64("userID", userIDInt64), zap.Error(err))
+				break
+			}
+
+			// fallback: treat as error and break
+			zap.L().Error("Failed to read WebSocket message", zap.Int64("userID", userIDInt64), zap.Error(err))
 			break
 		}
 	}

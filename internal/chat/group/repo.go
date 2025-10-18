@@ -26,7 +26,7 @@ func CreateRoomMemberTable(roomID int64) error {
             user_id BIGINT NOT NULL,
             nickname VARCHAR(100) DEFAULT NULL,
             role SMALLINT DEFAULT 0,
-            mute_until DATETIME DEFAULT 0,
+            mute_until DATETIME DEFAULT '1970-01-01 08:00:00',
             joined_at DATETIME DEFAULT CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `, tableName)

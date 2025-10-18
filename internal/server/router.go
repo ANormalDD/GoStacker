@@ -2,6 +2,7 @@ package server
 
 import (
 	"GoStacker/internal/chat/group"
+	"GoStacker/internal/chat/send"
 	"GoStacker/internal/user"
 	"GoStacker/internal/ws"
 	"GoStacker/pkg/logger"
@@ -36,6 +37,7 @@ func NewRouter() *gin.Engine {
 		auth.POST("/chat/group/change_member_role", group.ChangeMemberRoleHandler)
 		auth.POST("/chat/group/remove_member", group.RemoveMemberHandler)
 		auth.GET("/ws", ws.WebSocketHandler)
+		auth.POST("/chat/send_message", send.SendMessageHandler)
 	}
 
 	return g

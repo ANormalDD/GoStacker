@@ -1,5 +1,10 @@
 package send
 
+import (
+	"encoding/json"
+	"fmt"
+)
+
 type ChatPayload interface {
 	GetType() string
 }
@@ -39,4 +44,42 @@ func (v VoicePayload) GetType() string {
 
 func (f FilePayload) GetType() string {
 	return "file"
+}
+
+// UnmarshalChatPayload 根据 content JSON 内的 "type" 字段反序列化为具体的 payload
+func UnmarshalChatPayload(data json.RawMessage) (ChatPayload, error) {
+	var probe struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return nil, fmt.Errorf("invalid content json: %w", err)
+	}
+	switch probe.Type {
+	case "text":
+		var p TextPayload
+		if err := json.Unmarshal(data, &p); err != nil {
+			return nil, fmt.Errorf("invalid text payload: %w", err)
+		}
+		return p, nil
+	case "image":
+		var p ImagePayload
+		if err := json.Unmarshal(data, &p); err != nil {
+			return nil, fmt.Errorf("invalid image payload: %w", err)
+		}
+		return p, nil
+	case "voice":
+		var p VoicePayload
+		if err := json.Unmarshal(data, &p); err != nil {
+			return nil, fmt.Errorf("invalid voice payload: %w", err)
+		}
+		return p, nil
+	case "file":
+		var p FilePayload
+		if err := json.Unmarshal(data, &p); err != nil {
+			return nil, fmt.Errorf("invalid file payload: %w", err)
+		}
+		return p, nil
+	default:
+		return nil, fmt.Errorf("unknown content type: %s", probe.Type)
+	}
 }

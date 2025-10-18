@@ -7,7 +7,7 @@ import (
 )
 
 func InsertMessage(roomID int64, senderID int64, content ChatPayload) (int64, error) {
-	query := "INSERT INTO chat_messages (room_id, sender_id, content_type, content, created_at) VALUES (?, ?, ?, ?, ?)"
+	query := "INSERT INTO chat_messages (room_id, sender_id, type, content, created_at) VALUES (?, ?, ?, ?, ?)"
 	contentData, err := json.Marshal(content)
 	if err != nil {
 		return 0, err

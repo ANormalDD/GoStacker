@@ -41,3 +41,173 @@
 {"level":"INFO","time":"2025-10-15T19:10:27.931+0800","caller":"server/init.go:20","msg":"server run","addr":":8081"}
 {"level":"INFO","time":"2025-10-15T19:10:42.132+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0535657}
 {"level":"INFO","time":"2025-10-15T19:10:44.492+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":0}
+{"level":"INFO","time":"2025-10-19T01:38:15.191+0800","caller":"server/init.go:20","msg":"server run","addr":":8081"}
+{"level":"INFO","time":"2025-10-19T01:39:03.238+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0649583}
+{"level":"INFO","time":"2025-10-19T01:39:37.947+0800","caller":"logger/logger.go:68","msg":"/register","status":200,"method":"POST","path":"/register","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0579559}
+{"level":"INFO","time":"2025-10-19T01:39:46.284+0800","caller":"logger/logger.go:68","msg":"/login","status":401,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0537333}
+{"level":"INFO","time":"2025-10-19T01:39:56.222+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0539002}
+{"level":"INFO","time":"2025-10-19T01:40:15.380+0800","caller":"logger/logger.go:68","msg":"/api/chat/create","status":404,"method":"POST","path":"/api/chat/create","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0}
+{"level":"INFO","time":"2025-10-19T01:42:25.973+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0536346}
+{"level":"INFO","time":"2025-10-19T01:42:39.076+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0535049}
+{"level":"INFO","time":"2025-10-19T01:42:46.925+0800","caller":"logger/logger.go:68","msg":"/api/chat/group/create","status":200,"method":"POST","path":"/api/chat/group/create","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0}
+{"level":"INFO","time":"2025-10-19T01:46:34.460+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0542925}
+{"level":"INFO","time":"2025-10-19T01:46:42.277+0800","caller":"logger/logger.go:68","msg":"/api/chat/group/create","status":200,"method":"POST","path":"/api/chat/group/create","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0}
+{"level":"INFO","time":"2025-10-19T01:46:58.894+0800","caller":"push/dispatcher.go:108","msg":"Push dispatcher shutdown signal received, canceling dispatcher context"}
+{"level":"INFO","time":"2025-10-19T01:46:58.894+0800","caller":"push/dispatcher.go:113","msg":"Draining PushTaskChan to Redis"}
+{"level":"INFO","time":"2025-10-19T01:46:58.894+0800","caller":"push/channel_redis.go:106","msg":"ListeningWaitQueue exiting due to dispatcher shutdown"}
+{"level":"INFO","time":"2025-10-19T01:46:58.894+0800","caller":"push/dispatcher.go:133","msg":"Push dispatcher workers exited"}
+{"level":"INFO","time":"2025-10-19T01:47:25.064+0800","caller":"server/init.go:20","msg":"server run","addr":":8081"}
+{"level":"INFO","time":"2025-10-19T01:47:38.523+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0530381}
+{"level":"INFO","time":"2025-10-19T01:47:57.374+0800","caller":"logger/logger.go:68","msg":"/api/chat/group/create","status":500,"method":"POST","path":"/api/chat/group/create","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0075003}
+{"level":"INFO","time":"2025-10-19T01:49:44.835+0800","caller":"push/dispatcher.go:108","msg":"Push dispatcher shutdown signal received, canceling dispatcher context"}
+{"level":"INFO","time":"2025-10-19T01:49:44.835+0800","caller":"push/dispatcher.go:113","msg":"Draining PushTaskChan to Redis"}
+{"level":"INFO","time":"2025-10-19T01:49:44.835+0800","caller":"push/dispatcher.go:133","msg":"Push dispatcher workers exited"}
+{"level":"INFO","time":"2025-10-19T01:49:44.835+0800","caller":"push/channel_redis.go:106","msg":"ListeningWaitQueue exiting due to dispatcher shutdown"}
+{"level":"INFO","time":"2025-10-19T01:50:22.020+0800","caller":"server/init.go:20","msg":"server run","addr":":8081"}
+{"level":"INFO","time":"2025-10-19T01:50:51.384+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0536038}
+{"level":"INFO","time":"2025-10-19T01:50:59.162+0800","caller":"logger/logger.go:68","msg":"/api/chat/group/create","status":500,"method":"POST","path":"/api/chat/group/create","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0199736}
+{"level":"INFO","time":"2025-10-19T01:51:55.867+0800","caller":"push/dispatcher.go:108","msg":"Push dispatcher shutdown signal received, canceling dispatcher context"}
+{"level":"INFO","time":"2025-10-19T01:51:55.867+0800","caller":"push/dispatcher.go:113","msg":"Draining PushTaskChan to Redis"}
+{"level":"INFO","time":"2025-10-19T01:51:55.867+0800","caller":"push/channel_redis.go:106","msg":"ListeningWaitQueue exiting due to dispatcher shutdown"}
+{"level":"INFO","time":"2025-10-19T01:51:55.867+0800","caller":"push/dispatcher.go:133","msg":"Push dispatcher workers exited"}
+{"level":"INFO","time":"2025-10-19T01:56:48.938+0800","caller":"server/init.go:20","msg":"server run","addr":":8081"}
+{"level":"INFO","time":"2025-10-19T01:57:01.524+0800","caller":"logger/logger.go:68","msg":"/register","status":200,"method":"POST","path":"/register","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0598348}
+{"level":"INFO","time":"2025-10-19T01:57:16.108+0800","caller":"logger/logger.go:68","msg":"/register","status":200,"method":"POST","path":"/register","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0566532}
+{"level":"INFO","time":"2025-10-19T01:57:23.966+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0559751}
+{"level":"INFO","time":"2025-10-19T01:57:40.570+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0545458}
+{"level":"INFO","time":"2025-10-19T01:57:52.321+0800","caller":"logger/logger.go:68","msg":"/api/chat/group/create","status":500,"method":"POST","path":"/api/chat/group/create","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0005003}
+{"level":"INFO","time":"2025-10-19T01:58:57.907+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":2}
+{"level":"INFO","time":"2025-10-19T01:58:57.907+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":60.0009795}
+{"level":"WARN","time":"2025-10-19T01:59:45.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:00:39.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:01:33.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:02:27.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"INFO","time":"2025-10-19T02:03:18.870+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":2}
+{"level":"INFO","time":"2025-10-19T02:03:18.870+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":18.2424485}
+{"level":"WARN","time":"2025-10-19T02:03:21.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"INFO","time":"2025-10-19T02:03:38.199+0800","caller":"logger/logger.go:68","msg":"/api/chat/send_message","status":400,"method":"POST","path":"/api/chat/send_message","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0}
+{"level":"WARN","time":"2025-10-19T02:03:54.628+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:04:15.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"INFO","time":"2025-10-19T02:04:29.255+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":1}
+{"level":"INFO","time":"2025-10-19T02:04:29.255+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":60.000562}
+{"level":"WARN","time":"2025-10-19T02:04:48.628+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:05:09.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:05:17.255+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:05:42.628+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:06:03.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"INFO","time":"2025-10-19T02:06:24.024+0800","caller":"logger/logger.go:68","msg":"/api/chat/send_message","status":400,"method":"POST","path":"/api/chat/send_message","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0004994}
+{"level":"INFO","time":"2025-10-19T02:06:31.841+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":1}
+{"level":"INFO","time":"2025-10-19T02:06:31.841+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":25.7833401}
+{"level":"WARN","time":"2025-10-19T02:06:36.629+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:06:57.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:07:00.058+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:07:05.255+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:07:30.629+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:07:51.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:07:54.058+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:07:59.255+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:08:24.629+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:08:45.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:08:48.058+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:08:53.255+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:09:18.629+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:09:39.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:09:42.058+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:09:47.255+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:10:12.629+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:10:33.909+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:10:36.058+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:10:41.255+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:11:06.629+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:11:27.908+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:11:30.058+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:11:35.255+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:12:00.629+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:12:21.909+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:12:24.058+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:12:29.255+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:12:54.629+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:13:15.909+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:13:18.058+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:13:23.255+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:13:48.629+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:14:09.909+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:14:12.059+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:14:17.256+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:14:42.629+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:15:03.909+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:15:06.059+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:15:11.256+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:15:36.629+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:15:57.909+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:16:00.059+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:16:05.256+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"INFO","time":"2025-10-19T02:16:20.154+0800","caller":"push/dispatcher.go:108","msg":"Push dispatcher shutdown signal received, canceling dispatcher context"}
+{"level":"INFO","time":"2025-10-19T02:16:20.154+0800","caller":"push/dispatcher.go:113","msg":"Draining PushTaskChan to Redis"}
+{"level":"INFO","time":"2025-10-19T02:16:20.154+0800","caller":"push/dispatcher.go:133","msg":"Push dispatcher workers exited"}
+{"level":"INFO","time":"2025-10-19T02:16:20.154+0800","caller":"push/channel_redis.go:106","msg":"ListeningWaitQueue exiting due to dispatcher shutdown"}
+{"level":"INFO","time":"2025-10-19T02:16:31.558+0800","caller":"server/init.go:20","msg":"server run","addr":":8081"}
+{"level":"INFO","time":"2025-10-19T02:16:56.133+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.054004}
+{"level":"INFO","time":"2025-10-19T02:17:34.210+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0533601}
+{"level":"INFO","time":"2025-10-19T02:17:53.773+0800","caller":"logger/logger.go:68","msg":"/api/chat/send_message","status":500,"method":"POST","path":"/api/chat/send_message","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0019971}
+{"level":"INFO","time":"2025-10-19T02:18:40.398+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":2}
+{"level":"INFO","time":"2025-10-19T02:18:40.398+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":59.7332249}
+{"level":"INFO","time":"2025-10-19T02:18:44.263+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":1}
+{"level":"INFO","time":"2025-10-19T02:18:44.263+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":60.000565}
+{"level":"WARN","time":"2025-10-19T02:19:28.666+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:19:32.263+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:20:22.666+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:20:26.263+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:21:16.666+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"INFO","time":"2025-10-19T02:21:17.492+0800","caller":"push/dispatcher.go:108","msg":"Push dispatcher shutdown signal received, canceling dispatcher context"}
+{"level":"INFO","time":"2025-10-19T02:21:17.492+0800","caller":"push/dispatcher.go:113","msg":"Draining PushTaskChan to Redis"}
+{"level":"INFO","time":"2025-10-19T02:21:17.492+0800","caller":"push/channel_redis.go:106","msg":"ListeningWaitQueue exiting due to dispatcher shutdown"}
+{"level":"INFO","time":"2025-10-19T02:21:17.492+0800","caller":"push/dispatcher.go:133","msg":"Push dispatcher workers exited"}
+{"level":"WARN","time":"2025-10-19T02:21:20.263+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"INFO","time":"2025-10-19T02:21:27.747+0800","caller":"server/init.go:20","msg":"server run","addr":":8081"}
+{"level":"INFO","time":"2025-10-19T02:21:51.381+0800","caller":"logger/logger.go:68","msg":"/api/chat/send_message","status":500,"method":"POST","path":"/api/chat/send_message","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0024999}
+{"level":"INFO","time":"2025-10-19T02:22:43.588+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":1}
+{"level":"INFO","time":"2025-10-19T02:22:43.588+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":60.0012714}
+{"level":"INFO","time":"2025-10-19T02:22:45.514+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":2}
+{"level":"INFO","time":"2025-10-19T02:22:45.514+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":60.000418}
+{"level":"WARN","time":"2025-10-19T02:23:31.588+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:23:33.514+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:24:25.588+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:24:27.514+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:25:19.588+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:25:21.515+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:26:13.589+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:26:15.515+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"INFO","time":"2025-10-19T02:26:59.731+0800","caller":"logger/logger.go:68","msg":"/api/chat/group/create","status":200,"method":"POST","path":"/api/chat/group/create","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0206927}
+{"level":"WARN","time":"2025-10-19T02:27:07.589+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:27:09.515+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"INFO","time":"2025-10-19T02:27:18.351+0800","caller":"logger/logger.go:68","msg":"/api/chat/send_message","status":200,"method":"POST","path":"/api/chat/send_message","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0024995}
+{"level":"INFO","time":"2025-10-19T02:27:37.480+0800","caller":"logger/logger.go:68","msg":"/api/chat/send_message","status":200,"method":"POST","path":"/api/chat/send_message","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0019981}
+{"level":"INFO","time":"2025-10-19T02:28:03.583+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":2}
+{"level":"INFO","time":"2025-10-19T02:28:03.583+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":50.5220207}
+{"level":"INFO","time":"2025-10-19T02:28:05.869+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":1}
+{"level":"INFO","time":"2025-10-19T02:28:05.869+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":51.1287914}
+{"level":"WARN","time":"2025-10-19T02:28:07.062+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:28:08.741+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"INFO","time":"2025-10-19T02:28:41.194+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0537185}
+{"level":"INFO","time":"2025-10-19T02:28:49.647+0800","caller":"logger/logger.go:68","msg":"/api/chat/send_message","status":200,"method":"POST","path":"/api/chat/send_message","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0015001}
+{"level":"WARN","time":"2025-10-19T02:28:57.516+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:29:01.062+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"INFO","time":"2025-10-19T02:29:01.743+0800","caller":"logger/logger.go:68","msg":"/login","status":200,"method":"POST","path":"/login","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0520952}
+{"level":"INFO","time":"2025-10-19T02:29:08.810+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":2}
+{"level":"INFO","time":"2025-10-19T02:29:08.810+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":5.3006052}
+{"level":"INFO","time":"2025-10-19T02:29:35.704+0800","caller":"logger/logger.go:68","msg":"/api/chat/send_message","status":200,"method":"POST","path":"/api/chat/send_message","query":"","ip":"127.0.0.1","user-agent":"python-requests/2.23.0","errors":"","cost":0.0023856}
+{"level":"INFO","time":"2025-10-19T02:29:44.789+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":1}
+{"level":"INFO","time":"2025-10-19T02:29:44.789+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":60.0002643}
+{"level":"WARN","time":"2025-10-19T02:29:49.590+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"INFO","time":"2025-10-19T02:29:50.081+0800","caller":"ws/ws.go:97","msg":"WebSocket connection closed","userID":2}
+{"level":"INFO","time":"2025-10-19T02:29:50.081+0800","caller":"logger/logger.go:68","msg":"/api/ws","status":200,"method":"GET","path":"/api/ws","query":"","ip":"127.0.0.1","user-agent":"","errors":"","cost":40.2948184}
+{"level":"WARN","time":"2025-10-19T02:29:51.517+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:29:55.063+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:29:56.742+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":1}
+{"level":"WARN","time":"2025-10-19T02:29:57.511+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"WARN","time":"2025-10-19T02:30:03.786+0800","caller":"ws/ws.go:66","msg":"Connection holder not found during heartbeat","userID":2}
+{"level":"INFO","time":"2025-10-19T02:30:25.135+0800","caller":"push/dispatcher.go:108","msg":"Push dispatcher shutdown signal received, canceling dispatcher context"}
+{"level":"INFO","time":"2025-10-19T02:30:25.135+0800","caller":"push/dispatcher.go:113","msg":"Draining PushTaskChan to Redis"}
+{"level":"INFO","time":"2025-10-19T02:30:25.135+0800","caller":"push/dispatcher.go:133","msg":"Push dispatcher workers exited"}
+{"level":"INFO","time":"2025-10-19T02:30:25.135+0800","caller":"push/channel_redis.go:106","msg":"ListeningWaitQueue exiting due to dispatcher shutdown"}

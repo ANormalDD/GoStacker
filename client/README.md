@@ -42,6 +42,22 @@ python3 client/pyclient.py --help
   TOKEN=your_jwt python3 client/pyclient.py ws --backend http://localhost:8080
   ```
 
+Sending messages
+
+While connected to WebSocket you can use the interactive CLI to send messages via the HTTP API:
+
+- Send a text message to a room:
+  ```
+  /send <room_id> <text>
+  # example:
+  /send 1 Hello everyone
+  ```
+
+Other commands:
+
+- /help  show help
+- /quit or /exit  exit the client
+
 Examples:
 - Register:
   ./gostacker-client register -u username -p password
