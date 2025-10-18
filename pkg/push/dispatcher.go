@@ -101,12 +101,6 @@ func Dispatch(msg PushMessage) error {
 	return nil
 }
 
-func panicHandler() {
-	if r := recover(); r != nil {
-		zap.L().Error("Panic recovered in push dispatcher", zap.Any("recover", r))
-	}
-}
-
 func waitForShutdown() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

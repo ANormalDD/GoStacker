@@ -28,6 +28,5 @@ func SendMessage(roomID, senderID int64, text ChatPayload) error {
 	if err != nil {
 		return err
 	}
-
 	return BroadcastMessage(id, roomID, senderID, text)
 }
