@@ -1,0 +1,20 @@
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+server:
+  host: "localhost"
+  port: 8080
+central_server:
+  host: "localhost"
+  port: 9090
+log:
+  level: "info"
+  file: "gateway.log"
+  max_size: 100
+  max_backups: 7
+  max_age: 30
+  compress: true
+worker:
+  pool_size: 10
+  task_queue_size: 1000
