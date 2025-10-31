@@ -2,6 +2,7 @@ package group
 
 import (
 	"GoStacker/pkg/db/mysql"
+	rdb "GoStacker/pkg/db/redis"
 	"database/sql"
 	"fmt"
 	"strconv"
@@ -35,71 +36,13 @@ func CreateRoomMemberTable(roomID int64) error {
 }
 
 func InsertRoomMember(roomID int64, userID int64) error {
-	//user table update
-	tableNameUser := "users"
-	queryUser := fmt.Sprintf("UPDATE %s SET joined_chatrooms = CONCAT(IFNULL(joined_chatrooms, ''), ?, ',') WHERE id = ?", tableNameUser)
-	roomIDStr := fmt.Sprintf("%d", roomID)
-	_, err := mysql.DB.Exec(queryUser, roomIDStr, userID)
-	if err != nil {
-		return err
-	}
-	//chatroom table update
-	tableName := fmt.Sprintf("chat_room_members_room_%d", roomID)
-	query := fmt.Sprintf("INSERT INTO %s (user_id) VALUES (?)", tableName)
-	_, err = mysql.DB.Exec(query, userID)
-	return err
+	return AddRoomMemberCache(roomID, userID)
 }
 func InsertRoomMembers(roomID int64, userIDs []int64) error {
-	//user table update
-	tableNameUser := "users"
-	queryUser := fmt.Sprintf("UPDATE %s SET joined_chatrooms = CONCAT(IFNULL(joined_chatrooms, ''), ?, ',') WHERE id = ?", tableNameUser)
-	txUser, err := mysql.DB.Begin()
-	if err != nil {
-		return err
-	}
-	stmtUser, err := txUser.Prepare(queryUser)
-	if err != nil {
-		txUser.Rollback()
-		return err
-	}
-	defer stmtUser.Close()
-	roomIDStr := fmt.Sprintf("%d", roomID)
-	for _, userID := range userIDs {
-		if _, err := stmtUser.Exec(roomIDStr, userID); err != nil {
-			txUser.Rollback()
-			return err
-		}
-	}
-	if err := txUser.Commit(); err != nil {
-		return err
-	}
-
-	//chatroom table update
-	tableName := fmt.Sprintf("chat_room_members_room_%d", roomID)
-	query := fmt.Sprintf("INSERT INTO %s (user_id) VALUES (?)", tableName)
-	tx, err := mysql.DB.Begin()
-	if err != nil {
-		return err
-	}
-	stmt, err := tx.Prepare(query)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	defer stmt.Close()
-	for _, userID := range userIDs {
-		if _, err := stmt.Exec(userID); err != nil {
-			tx.Rollback()
-			return err
-		}
-	}
-	return tx.Commit()
+	return AddRoomMembersCache(roomID, userIDs)
 }
 func DeleteRoomMember(roomID int64, userID int64) error {
-	tableName := fmt.Sprintf("chat_room_members_room_%d", roomID)
-	query := fmt.Sprintf("DELETE FROM %s WHERE user_id = ?", tableName)
-	_, err := mysql.DB.Exec(query, userID)
-	return err
+	return RemoveRoomMemberCache(roomID, userID)
 }
 func UpdateMemberNickname(roomID int64, userID int64, nickname string) error {
 	tableName := fmt.Sprintf("chat_room_members_room_%d", roomID)
@@ -143,6 +86,10 @@ func QueryIsGroupRoom(roomID int64) (bool, error) {
 }
 
 func IsRoomMember(roomID int64, userID int64) (bool, error) {
+	// try cache first
+	if ok, err := IsRoomMemberCache(roomID, userID); err == nil {
+		return ok, nil
+	}
 	tableName := fmt.Sprintf("chat_room_members_room_%d", roomID)
 	query := fmt.Sprintf("SELECT COUNT(1) FROM %s WHERE user_id = ?", tableName)
 	var count int
@@ -163,6 +110,11 @@ func IsGroupRoom(roomID int64) (bool, error) {
 }
 
 func QueryJoinedRooms(userID int64) ([]int64, error) {
+	// try cache first
+	if rooms, err := GetUserJoinedRoomsCache(userID); err == nil && len(rooms) > 0 {
+		return rooms, nil
+	}
+	// fallback to DB and populate cache
 	query := "SELECT joined_chatrooms FROM users WHERE id = ?"
 	var joinedChatrooms sql.NullString
 	err := mysql.DB.QueryRow(query, userID).Scan(&joinedChatrooms)
@@ -184,10 +136,23 @@ func QueryJoinedRooms(userID int64) ([]int64, error) {
 		}
 		roomIDs = append(roomIDs, id)
 	}
+	// populate cache set
+	if len(roomIDs) > 0 {
+		members := make([]interface{}, 0, len(roomIDs))
+		for _, r := range roomIDs {
+			members = append(members, strconv.FormatInt(r, 10))
+		}
+		_ = rdb.Rdb.SAdd(fmt.Sprintf("users:joined:%d", userID), members...)
+	}
 	return roomIDs, nil
 }
 
 func QueryRoomMemberIDs(roomID int64) ([]int64, error) {
+	// try cache first
+	if members, err := GetRoomMemberIDsCache(roomID); err == nil && len(members) > 0 {
+		return members, nil
+	}
+	// fallback to DB
 	tableName := fmt.Sprintf("chat_room_members_room_%d", roomID)
 	query := fmt.Sprintf("SELECT user_id FROM %s", tableName)
 	rows, err := mysql.DB.Query(query)
@@ -202,6 +167,14 @@ func QueryRoomMemberIDs(roomID int64) ([]int64, error) {
 			return nil, err
 		}
 		memberIDs = append(memberIDs, userID)
+	}
+	// populate cache
+	if len(memberIDs) > 0 {
+		members := make([]interface{}, 0, len(memberIDs))
+		for _, u := range memberIDs {
+			members = append(members, strconv.FormatInt(u, 10))
+		}
+		_ = rdb.Rdb.SAdd(fmt.Sprintf("groups:members:%d", roomID), members...)
 	}
 	return memberIDs, nil
 }

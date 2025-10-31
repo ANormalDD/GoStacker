@@ -2,7 +2,7 @@
 name: "GoStacker"
 mode: "dev"
 port: 8081
-strat_time: "2024-06-10 12:00:00"
+start_time: "2024-06-10 12:00:00"
 machine_id: 1
 
 log:
@@ -27,6 +27,15 @@ redis:
   db: 0
   password: ""
   pool_size: 50
+  batch_size: 128
+
+group_cache:
+  enabled: true
+  cache_ttl_seconds: 86400        # 24 hours
+  dirty_retention_seconds: 604800 # 7 days
+  flush_interval_seconds: 5       # flusher tick interval
+  batch_size: 100
+  max_retries: 3
 
 jwt:
   secret: "your_jwt_secret_key"

@@ -2,6 +2,7 @@ package main
 
 import (
 	"GoStacker/cmd/server"
+	"GoStacker/internal/chat/group"
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/db/mysql"
 	"GoStacker/pkg/db/redis"
@@ -9,6 +10,7 @@ import (
 	"GoStacker/pkg/push"
 	"GoStacker/pkg/utils"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -37,6 +39,22 @@ func main() {
 	defer redis.Close()
 	utils.SetJWTConfig(config.Conf.JWTConfig)
 	push.InitDispatcher(config.Conf.DispatcherConfig)
+	// start group flusher background worker (write-back cache) if enabled
+	if config.Conf != nil && config.Conf.GroupCacheConfig != nil && config.Conf.GroupCacheConfig.Enabled {
+		go func() {
+			stopCh := make(chan struct{})
+			go func() { /* never close stopCh; will run until process exit */ }()
+			interval := 5 * time.Second
+			if config.Conf.GroupCacheConfig.FlushIntervalSeconds > 0 {
+				interval = time.Duration(config.Conf.GroupCacheConfig.FlushIntervalSeconds) * time.Second
+			}
+			batch := config.Conf.GroupCacheConfig.BatchSize
+			if batch <= 0 {
+				batch = 100
+			}
+			group.RunGroupFlusher(interval, batch, stopCh)
+		}()
+	}
 	server.Start()
 
 	defer zap.L().Info("service exit")

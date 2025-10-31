@@ -17,10 +17,11 @@ type AppConfig struct {
 	StartTime string `mapstructure:"start_time"`
 	MachineID int64  `mapstructure:"machine_id"`
 
-	*LogConfig   `mapstructure:"log"`
-	*MySQLConfig `mapstructure:"mysql"`
-	*RedisConfig `mapstructure:"redis"`
-	*JWTConfig   `mapstructure:"jwt"`
+	*LogConfig        `mapstructure:"log"`
+	*MySQLConfig      `mapstructure:"mysql"`
+	*RedisConfig      `mapstructure:"redis"`
+	*GroupCacheConfig `mapstructure:"group_cache"`
+	*JWTConfig        `mapstructure:"jwt"`
 	*DispatcherConfig `mapstructure:"dispatcher"`
 }
 
@@ -43,11 +44,20 @@ type MySQLConfig struct {
 }
 
 type RedisConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Password string `mapstructure:"password"`
-	DB       int    `mapstructure:"db"`
-	PoolSize int    `mapstructure:"pool_size"`
+	Host      string `mapstructure:"host"`
+	Port      int    `mapstructure:"port"`
+	Password  string `mapstructure:"password"`
+	DB        int    `mapstructure:"db"`
+	PoolSize  int    `mapstructure:"pool_size"`
+	BatchSize int    `mapstructure:"batch_size"`
+}
+type GroupCacheConfig struct {
+	Enabled               bool  `mapstructure:"enabled"`
+	CacheTTLSeconds       int64 `mapstructure:"cache_ttl_seconds"`
+	DirtyRetentionSeconds int64 `mapstructure:"dirty_retention_seconds"`
+	FlushIntervalSeconds  int64 `mapstructure:"flush_interval_seconds"`
+	BatchSize             int   `mapstructure:"batch_size"`
+	MaxRetries            int   `mapstructure:"max_retries"`
 }
 type JWTConfig struct {
 	Secret         string `mapstructure:"secret"`
