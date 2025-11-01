@@ -26,6 +26,13 @@ func WriteJSONSafe(holder *ConnectionHolder, timeout time.Duration, message inte
 		return ErrNoConn
 	}
 	holder.Conn.SetWriteDeadline(time.Now().Add(timeout))
+	// If caller passed a websocket control message type (e.g. websocket.PingMessage)
+	// write it as a control frame instead of JSON. This ensures pings are sent
+	// as real WebSocket ping control frames so clients will reply with pong.
+	if mt, ok := message.(int); ok && mt == websocket.PingMessage {
+		// send ping control frame with empty payload
+		return holder.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(timeout))
+	}
 	return holder.Conn.WriteJSON(message)
 }
 
