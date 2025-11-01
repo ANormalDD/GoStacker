@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"GoStacker/pkg/config"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -13,30 +15,94 @@ var connStore sync.Map // key: int64, value: *ConnectionHolder
 
 var ErrNoConn = errors.New("no connection for user")
 
-type ConnectionHolder struct {
-	Conn *websocket.Conn
-	Mu   sync.Mutex
+type sendRequest struct {
+	msg  interface{}
+	resp chan error
 }
 
-// WriteJSONSafe 写操作封装在 holder 内，确保在持锁后检查 conn 并设置写超时
+type ConnectionHolder struct {
+	Conn    *websocket.Conn
+	sendCh  chan sendRequest
+	closeCh chan struct{}
+}
+
+// writerLoop 串行化对 websocket 的写入并在完成后将结果返回给请求方
+func writerLoop(ch *ConnectionHolder) {
+	for {
+		select {
+		case req, ok := <-ch.sendCh:
+			if !ok {
+				return
+			}
+			var err error
+			// If caller passed a websocket control message type (e.g. websocket.PingMessage)
+			// write it as a control frame instead of JSON.
+			if mt, ok := req.msg.(int); ok && mt == websocket.PingMessage {
+				err = ch.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second))
+			} else {
+				ch.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				err = ch.Conn.WriteJSON(req.msg)
+			}
+			// send result back if caller expects it
+			if req.resp != nil {
+				select {
+				case req.resp <- err:
+				default:
+				}
+			}
+			if err != nil {
+				// on write error, close connection and exit writer
+				ch.Conn.Close()
+				return
+			}
+		case <-ch.closeCh:
+			return
+		}
+	}
+}
+
+// WriteJSONSafe 将消息封装成请求并发送到连接的 writer goroutine，等待写入完成或超时
 func WriteJSONSafe(holder *ConnectionHolder, timeout time.Duration, message interface{}) error {
-	holder.Mu.Lock()
-	defer holder.Mu.Unlock()
-	if holder.Conn == nil {
+	if holder == nil {
 		return ErrNoConn
 	}
-	holder.Conn.SetWriteDeadline(time.Now().Add(timeout))
-	// If caller passed a websocket control message type (e.g. websocket.PingMessage)
-	// write it as a control frame instead of JSON. This ensures pings are sent
-	// as real WebSocket ping control frames so clients will reply with pong.
-	if mt, ok := message.(int); ok && mt == websocket.PingMessage {
-		// send ping control frame with empty payload
-		return holder.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(timeout))
+	// prepare request
+	req := sendRequest{msg: message, resp: make(chan error, 1)}
+	// enqueue with timeout
+	select {
+	case holder.sendCh <- req:
+		// wait for write result or timeout
+		select {
+		case err := <-req.resp:
+			if err != nil {
+				return err
+			}
+			return nil
+		case <-time.After(timeout):
+			return errors.New("write result timeout")
+		}
+	case <-time.After(timeout):
+		return errors.New("enqueue timeout")
 	}
-	return holder.Conn.WriteJSON(message)
 }
 
-// GetConnectionHolder 返回 holder，用于在调用方持锁/访问 Conn
+// EnqueueMessage 将消息尽力推入连接发送队列，不等待写入执行，仅等待入队成功或超时。
+func EnqueueMessage(userID int64, timeout time.Duration, message interface{}) error {
+	val, ok := connStore.Load(userID)
+	if !ok {
+		return ErrNoConn
+	}
+	holder := val.(*ConnectionHolder)
+	req := sendRequest{msg: message, resp: nil}
+	select {
+	case holder.sendCh <- req:
+		return nil
+	case <-time.After(timeout):
+		return errors.New("enqueue timeout")
+	}
+}
+
+// GetConnectionHolder 返回 holder，用于在调用方检查/访问 Conn
 func GetConnectionHolder(userID int64) (*ConnectionHolder, bool) {
 	val, ok := connStore.Load(userID)
 	if !ok {
@@ -49,16 +115,29 @@ func RegisterConnection(userID int64, conn *websocket.Conn) {
 	// 如果已有旧连接，先关闭并删除
 	if val, ok := connStore.Load(userID); ok {
 		holder := val.(*ConnectionHolder)
-		holder.Mu.Lock()
+		// signal close
+		func() {
+			defer func() { _ = recover() }()
+			close(holder.closeCh)
+			close(holder.sendCh)
+		}()
 		if holder.Conn != nil {
 			holder.Conn.Close()
 		}
 		connStore.Delete(userID)
-		holder.Conn = nil
-		holder.Mu.Unlock()
 	}
-	holder := &ConnectionHolder{Conn: conn}
+	// determine send channel buffer size from config, fallback to 128
+	buf := 128
+	if config.Conf != nil && config.Conf.DispatcherConfig != nil && config.Conf.DispatcherConfig.SendChannelSize > 0 {
+		buf = config.Conf.DispatcherConfig.SendChannelSize
+	}
+	holder := &ConnectionHolder{
+		Conn:    conn,
+		sendCh:  make(chan sendRequest, buf),
+		closeCh: make(chan struct{}),
+	}
 	connStore.Store(userID, holder)
+	go writerLoop(holder)
 }
 
 func RemoveConnection(userID int64) error {
@@ -67,14 +146,16 @@ func RemoveConnection(userID int64) error {
 		return ErrNoConn
 	}
 	holder := val.(*ConnectionHolder)
-	holder.Mu.Lock()
+	// try close channels safely
+	func() {
+		defer func() { _ = recover() }()
+		close(holder.closeCh)
+		close(holder.sendCh)
+	}()
 	if holder.Conn != nil {
 		holder.Conn.Close()
 	}
 	connStore.Delete(userID)
-	holder.Conn = nil
-	holder.Mu.Unlock()
-
 	return nil
 }
 
@@ -87,13 +168,9 @@ func GetConnection(userID int64) (*websocket.Conn, bool) {
 	return holder.Conn, true
 }
 
+// compatibility: keep these helpers but note they are no-ops for lock-based access
 func GetConnectionLock(userID int64) (*sync.Mutex, bool) {
-	val, ok := connStore.Load(userID)
-	if !ok {
-		return nil, false
-	}
-	holder := val.(*ConnectionHolder)
-	return &holder.Mu, true
+	return nil, false
 }
 
 func GetConnectionAndLock(userID int64) (*websocket.Conn, *sync.Mutex, bool) {
@@ -102,5 +179,5 @@ func GetConnectionAndLock(userID int64) (*websocket.Conn, *sync.Mutex, bool) {
 		return nil, nil, false
 	}
 	holder := val.(*ConnectionHolder)
-	return holder.Conn, &holder.Mu, true
+	return holder.Conn, nil, true
 }

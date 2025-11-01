@@ -4,6 +4,7 @@ mode: "dev"
 port: 8081
 start_time: "2024-06-10 12:00:00"
 machine_id: 1
+push_mod: "local" # "local" or "gateway"
 
 log:
   level: "debug"
@@ -46,5 +47,4 @@ ws:
   max_read_wait: 60  # in seconds
 
 dispatcher:
-  worker_count: 20
-  task_queue_size: 1000
+ send_channel_size: 1024

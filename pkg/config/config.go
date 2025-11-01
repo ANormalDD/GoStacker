@@ -16,6 +16,7 @@ type AppConfig struct {
 	Version   string `mapstructure:"version"`
 	StartTime string `mapstructure:"start_time"`
 	MachineID int64  `mapstructure:"machine_id"`
+	PushMod   string `mapstructure:"push_mod"`
 
 	*LogConfig        `mapstructure:"log"`
 	*MySQLConfig      `mapstructure:"mysql"`
@@ -65,8 +66,9 @@ type JWTConfig struct {
 }
 
 type DispatcherConfig struct {
-	WorkerCount   int `mapstructure:"worker_count"`
-	TaskQueueSize int `mapstructure:"task_queue_size"`
+	// SendChannelSize defines the buffer size for per-connection send channels.
+	// Replaces previous worker-pool related settings.
+	SendChannelSize int `mapstructure:"send_channel_size"`
 }
 
 func Init() (err error) {
