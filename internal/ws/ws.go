@@ -65,9 +65,8 @@ func WebSocketHandler(c *gin.Context) {
 		for range ticker.C {
 			holder, ok := push.GetConnectionHolder(userIDInt64)
 			if !ok {
-				zap.L().Warn("Connection holder not found during heartbeat", zap.Int64("userID", userIDInt64))
-
-				continue
+				zap.L().Warn("Connection closed, stopping heartbeat", zap.Int64("userID", userIDInt64))
+				return
 			}
 
 			err := push.WriteJSONSafe(holder, writeWait, websocket.PingMessage)
