@@ -10,7 +10,23 @@ var userID2GatewayMap sync.Map // map[int64]string
 
 func UserConnHandler(msg map[string]interface{}, gatewayID string) {
 	zap.L().Debug("userConn: handler invoked", zap.Any("msg", msg), zap.String("gatewayID", gatewayID))
-	userID := msg["user_id"].(int64)
+	var userID int64
+	if userIDVal, ok := msg["user_id"]; ok {
+		switch v := userIDVal.(type) {
+		case float64:
+			userID = int64(v)
+		case int:
+			userID = int64(v)
+		case int64:
+			userID = v
+		default:
+			zap.L().Error("register: invalid port type", zap.Any("actual_type", v))
+			return
+		}
+	} else {
+		zap.L().Error("register: missing port field in data")
+		return
+	}
 	userID2GatewayMap.Store(userID, gatewayID)
 }
 
