@@ -1,8 +1,10 @@
 package register
 
 import (
-	"go.uber.org/zap"
 	"GoStacker/internal/gateway"
+	"strconv"
+
+	"go.uber.org/zap"
 )
 
 func RegisterGatewayHandler(msg map[string]interface{}, gatewayID string) {
@@ -17,6 +19,12 @@ func RegisterGatewayHandler(msg map[string]interface{}, gatewayID string) {
 		zap.L().Error("register: missing or invalid address field in gateway_info")
 		return
 	}
+	port, ok := gatewayInfo["port"].(int)
+	if !ok {
+		zap.L().Error("register: missing or invalid port field in gateway_info")
+		return
+	}
+	address = address + ":" + strconv.Itoa(port)
 	load := float32(0)
 	if loadVal, ok := gatewayInfo["load"].(float64); ok {
 		load = float32(loadVal)

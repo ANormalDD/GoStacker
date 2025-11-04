@@ -2,15 +2,16 @@ package getGatewayAddr
 
 import (
 	"GoStacker/internal/gateway"
-	"GoStacker/pkg/response"
 	"GoStacker/pkg/config"
+	"GoStacker/pkg/response"
+
 	"github.com/gin-gonic/gin"
 	"go.uber.org/zap"
 )
 
 func GetGatewayAddrHandler(c *gin.Context) {
 	//get the lowest load gateway
-	if config.Conf.Mode != "gateway" {
+	if config.Conf.PushMod != "gateway" {
 		response.ReplySuccessWithData(c, "standalone", gin.H{
 			"gateway_id": "standalone",
 			"address":    config.Conf.Address,

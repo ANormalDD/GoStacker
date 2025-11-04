@@ -91,7 +91,33 @@ def ws_connect(base, token):
     if not token:
         print("请先登录！")
         return
-    ws_url = to_ws_url(base)
+    # Try to get gateway/push server address first
+    headers_req = {"Authorization": f"Bearer {token}"}
+    try:
+        r = requests.get(f"{base}/api/get_gateway_ws", headers=headers_req, timeout=5)
+        print("Gateway response status:", r.status_code)
+        print("Gateway response text:", r.text)
+        if r.status_code == 200:
+            try:
+                obj = r.json()
+                data = obj.get("data", {})
+                addr = data.get("address")
+                if addr:
+                    # addr may be like "host:port" or a full URL. Ensure it has a scheme.
+                    if addr.startswith("http://") or addr.startswith("https://"):
+                        gateway_base = addr
+                    else:
+                        gateway_base = f"http://{addr}"
+                    ws_url = to_ws_url(gateway_base)
+                else:
+                    ws_url = to_ws_url(base)
+            except Exception:
+                ws_url = to_ws_url(base)
+        else:
+            return
+    except Exception:
+        ws_url = to_ws_url(base)
+    
     headers = [f"Authorization: Bearer {token}"]
     # pretty print incoming JSON messages when possible
     def on_message(ws, message):
