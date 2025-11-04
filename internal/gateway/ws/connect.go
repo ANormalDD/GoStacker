@@ -1,10 +1,10 @@
 package ws
 
 import (
+	"GoStacker/internal/gateway/loadupdate"
 	"GoStacker/internal/gateway/pushback"
 	"GoStacker/internal/gateway/register"
 	"GoStacker/internal/gateway/userConn"
-	"GoStacker/internal/gateway/loadupdate"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -26,6 +26,7 @@ var upgrader = websocket.Upgrader{
 
 // gateway会通过ws与中心服务器建立连接，并接收推送的消息
 func WebSocketHandler(c *gin.Context) {
+	zap.L().Info("Gateway WebSocket connection attempt,address", zap.String("addr", c.ClientIP()))
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		zap.L().Error("Failed to upgrade to WebSocket (gateway)", zap.Error(err))
