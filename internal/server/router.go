@@ -3,8 +3,10 @@ package server
 import (
 	"GoStacker/internal/chat/group"
 	"GoStacker/internal/chat/send"
+	gateway_ws "GoStacker/internal/gateway/ws"
+	"GoStacker/internal/getGatewayAddr"
 	"GoStacker/internal/user"
-	"GoStacker/internal/ws"
+	user_ws "GoStacker/internal/ws"
 	"GoStacker/pkg/logger"
 	"GoStacker/pkg/middleware"
 	"GoStacker/pkg/response"
@@ -14,7 +16,7 @@ import (
 
 // NewRouter creates and returns a gin.Engine with middleware and routes registered.
 // Put route registration here so `cmd/server/main.go` stays concise.
-func NewRouter() *gin.Engine {
+func NewRouter(PushMod string) *gin.Engine {
 	// Use gin in release mode in production
 	gin.SetMode(gin.ReleaseMode)
 	g := gin.New()
@@ -36,9 +38,17 @@ func NewRouter() *gin.Engine {
 		auth.POST("/chat/group/change_nickname", group.ChangeNicknameHandler)
 		auth.POST("/chat/group/change_member_role", group.ChangeMemberRoleHandler)
 		auth.POST("/chat/group/remove_member", group.RemoveMemberHandler)
-		auth.GET("/ws", ws.WebSocketHandler)
+		if PushMod == "standalone" {
+			auth.GET("/ws", user_ws.WebSocketHandler)
+		}
+		auth.GET("/get_gateway_ws", getGatewayAddr.GetGatewayAddrHandler)
 		auth.POST("/chat/send_message", send.SendMessageHandler)
 	}
-
+	if PushMod == "gateway" {
+		gateway := g.Group("/gateway")
+		{
+			gateway.GET("/ws", gateway_ws.WebSocketHandler)
+		}
+	}
 	return g
 }

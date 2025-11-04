@@ -19,7 +19,7 @@ var dispatcherCancel context.CancelFunc
 
 // no worker pool anymore; dispatcher uses per-connection channels
 
-func Dispatch_local(msg PushMessage) error {
+func Dispatch_StandAlone(msg PushMessage) error {
 
 	clientMsg := ClientMessage{
 		ID:       msg.ID,
@@ -70,10 +70,7 @@ func waitForShutdown() {
 	// ListeningWaitQueue and other goroutines should observe dispatcherCtx.Done() and exit.
 	zap.L().Info("Push dispatcher shutdown initiated; background listeners will exit")
 }
-func Dispatch_gateway(msg PushMessage) error {
-	// Implement the distribution logic here
-	return nil
-}
+
 func InitDispatcher(Conf *config.DispatcherConfig) {
 	dispatcherCtx, dispatcherCancel = context.WithCancel(context.Background())
 	go waitForShutdown()

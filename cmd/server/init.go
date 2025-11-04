@@ -9,9 +9,9 @@ import (
 	"go.uber.org/zap"
 )
 
-func Start() {
+func Start(PushMod string) {
 
-	r := server.NewRouter()
+	r := server.NewRouter(PushMod)
 	addr := fmt.Sprintf(":%d", config.Conf.Port)
 	srv := &http.Server{
 		Addr:    addr,

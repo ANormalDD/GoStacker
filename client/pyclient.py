@@ -106,12 +106,25 @@ def ws_connect(base, token):
         print("closed", close_status_code, close_msg)
     def on_open(ws):
         print("connected to", ws_url)
+    # optional: log ping/pong events from server for visibility
+    def on_ping(ws, message):
+        try:
+            print("<< ping from server:", message)
+        except Exception:
+            print("<< ping from server")
+    def on_pong(ws, message):
+        try:
+            print("<< pong from server:", message)
+        except Exception:
+            print("<< pong from server")
     ws = websocket.WebSocketApp(ws_url,
                                 header=headers,
                                 on_message=on_message,
                                 on_error=on_error,
                                 on_close=on_close,
-                                on_open=on_open)
+                                on_open=on_open,
+                                on_ping=on_ping,
+                                on_pong=on_pong)
     wst = threading.Thread(target=ws.run_forever, kwargs={"sslopt": {"cert_reqs": 0}})
     # run in background thread and allow automatic reconnection logic in outer loop
     def start_ws():

@@ -10,6 +10,7 @@ import (
 	"GoStacker/pkg/push"
 	"GoStacker/pkg/utils"
 	"fmt"
+	"runtime"
 	"time"
 
 	"go.uber.org/zap"
@@ -38,7 +39,7 @@ func main() {
 	}
 	defer redis.Close()
 	utils.SetJWTConfig(config.Conf.JWTConfig)
-	if config.Conf.PushMod == "local" {
+	if config.Conf.PushMod == "standalone" {
 		push.InitDispatcher(config.Conf.DispatcherConfig)
 		// start group flusher background worker (write-back cache) if enabled
 		if config.Conf != nil && config.Conf.GroupCacheConfig != nil && config.Conf.GroupCacheConfig.Enabled {
@@ -57,6 +58,21 @@ func main() {
 			}()
 		}
 	}
+
+	// start gateway dispatcher worker pool (configured via config.dispatcher)
+	gwWorkers := 0
+	gwQueue := 0
+	if config.Conf != nil && config.Conf.DispatcherConfig != nil {
+		gwWorkers = config.Conf.DispatcherConfig.GatewayWorkerCount
+		gwQueue = config.Conf.DispatcherConfig.GatewayQueueSize
+	}
+	if gwWorkers <= 0 {
+		gwWorkers = runtime.NumCPU()
+	}
+	if gwQueue <= 0 {
+		gwQueue = 1024
+	}
+	push.StartGatewayDispatcher(gwWorkers, gwQueue)
 	server.Start(config.Conf.PushMod)
 
 	defer zap.L().Info("service exit")

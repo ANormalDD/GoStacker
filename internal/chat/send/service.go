@@ -2,6 +2,7 @@ package send
 
 import (
 	"GoStacker/internal/chat/group"
+	"GoStacker/pkg/config"
 	"GoStacker/pkg/push"
 )
 
@@ -19,8 +20,10 @@ func BroadcastMessage(id int64, roomID int64, senderID int64, content ChatPayloa
 		TargetIDs: members,
 		Payload:   content,
 	}
-
-	return push.Dispatch(msg)
+	if config.Conf.PushMod == "standalone" {
+		return push.Dispatch_StandAlone(msg)
+	}
+	return push.Dispatch_gateway(msg)
 }
 
 func SendMessage(roomID, senderID int64, text ChatPayload) error {

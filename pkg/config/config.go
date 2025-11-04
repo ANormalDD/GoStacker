@@ -17,6 +17,7 @@ type AppConfig struct {
 	StartTime string `mapstructure:"start_time"`
 	MachineID int64  `mapstructure:"machine_id"`
 	PushMod   string `mapstructure:"push_mod"`
+	Address   string `mapstructure:"address"`
 
 	*LogConfig        `mapstructure:"log"`
 	*MySQLConfig      `mapstructure:"mysql"`
@@ -69,6 +70,12 @@ type DispatcherConfig struct {
 	// SendChannelSize defines the buffer size for per-connection send channels.
 	// Replaces previous worker-pool related settings.
 	SendChannelSize int `mapstructure:"send_channel_size"`
+	// GatewayWorkerCount controls number of workers for gateway dispatcher.
+	// If 0, code will fall back to runtime.NumCPU().
+	GatewayWorkerCount int `mapstructure:"gateway_worker_count"`
+	// GatewayQueueSize controls the internal queue size for gateway dispatcher.
+	// If 0, a sensible default (1024) will be used.
+	GatewayQueueSize int `mapstructure:"gateway_queue_size"`
 }
 
 func Init() (err error) {
