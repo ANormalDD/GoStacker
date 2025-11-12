@@ -8,6 +8,7 @@ import (
 	"GoStacker/pkg/config"
 
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 // 单一存储，key: string(gatewayID), value: *ConnectionHolder
@@ -36,7 +37,13 @@ func writerLoop(ch *ConnectionHolder) {
 				ch.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second))
 			} else {
 				ch.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-				ch.Conn.WriteJSON(msg)
+				err := ch.Conn.WriteJSON(msg)
+				if err != nil {
+					zap.L().Error("Failed to write message to gateway", zap.Error(err))
+					// on write error, close connection
+					RemoveConnection(ch.Conn.RemoteAddr().String())
+					return
+				}
 			}
 		case <-ch.closeCh:
 			return
@@ -83,12 +90,14 @@ func RegisterConnection(gatewayID string, conn *websocket.Conn) {
 
 // SendToGateway 将消息发送到指定 gateway 的发送队列。timeout 为等待发送入队的超时时间
 func SendToGateway(gatewayID string, timeout time.Duration, message interface{}) error {
+	zap.L().Debug("Sending message to gateway", zap.String("gateway_id", gatewayID), zap.Any("message", message))
 	val, ok := connStore.Load(gatewayID)
 	if !ok {
 		return ErrNoConn
 	}
 	holder := val.(*ConnectionHolder)
 	// 将消息推入发送通道，带超时
+	zap.L().Debug("Enqueuing message to gateway send channel", zap.String("gateway_id", gatewayID), zap.Any("message", message))
 	select {
 	case holder.sendCh <- message:
 		return nil
