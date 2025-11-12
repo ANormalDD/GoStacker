@@ -3,6 +3,7 @@ package main
 import (
 	"GoStacker/cmd/server"
 	"GoStacker/internal/chat/group"
+	"GoStacker/internal/gateway/mid"
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/db/mysql"
 	"GoStacker/pkg/db/redis"
@@ -58,7 +59,7 @@ func main() {
 			}()
 		}
 	}
-
+	mid.RegisterPushOfflineMessagesFuc(push.PushOfflineMessages)
 	// start gateway dispatcher worker pool (configured via config.dispatcher)
 	gwWorkers := 0
 	gwQueue := 0

@@ -1,6 +1,7 @@
 package userConn
 
 import (
+	"GoStacker/internal/gateway/mid"
 	"sync"
 
 	"go.uber.org/zap"
@@ -28,6 +29,7 @@ func UserConnHandler(msg map[string]interface{}, gatewayID string) {
 		return
 	}
 	userID2GatewayMap.Store(userID, gatewayID)
+	mid.InvokePushOfflineMessages(userID)
 }
 
 func UserDisconnHandler(msg map[string]interface{}) {
