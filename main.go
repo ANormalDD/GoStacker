@@ -3,6 +3,7 @@ package main
 import (
 	"GoStacker/cmd/server"
 	"GoStacker/internal/chat/group"
+	chatsend "GoStacker/internal/chat/send"
 	"GoStacker/internal/gateway/mid"
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/db/mysql"
@@ -58,6 +59,14 @@ func main() {
 				group.RunGroupFlusher(interval, batch, stopCh)
 			}()
 		}
+		// start message flusher for cached send->mysql writes (default interval 5s, batch 100)
+		go func() {
+			stopCh := make(chan struct{})
+			go func() { /* never close stopCh; will run until process exit */ }()
+			interval := 5 * time.Second
+			batch := 100
+			chatsend.StartMessageFlusher(interval, batch, stopCh)
+		}()
 	}
 	mid.RegisterPushOfflineMessagesFuc(push.PushOfflineMessages)
 	// start gateway dispatcher worker pool (configured via config.dispatcher)
