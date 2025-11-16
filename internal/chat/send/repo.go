@@ -7,8 +7,20 @@ import (
 	"strings"
 	"time"
 
+	snowflake "github.com/bwmarrin/snowflake"
 	Redis "github.com/go-redis/redis"
 )
+
+var sfNode *snowflake.Node
+
+func init() {
+	// 默认使用 node 1；在生产环境中可考虑从配置或机器 ID 派生节点号
+	node, err := snowflake.NewNode(1)
+	if err != nil {
+		panic(err)
+	}
+	sfNode = node
+}
 
 func InsertMessage(roomID int64, senderID int64, content ChatPayload) (int64, error) {
 	// 缓存写入：将消息序列化并推入 Redis 列表，后端定时批量写入 MySQL。
@@ -17,7 +29,10 @@ func InsertMessage(roomID int64, senderID int64, content ChatPayload) (int64, er
 		return 0, err
 	}
 
+	msgID := sfNode.Generate().Int64()
+
 	cm := cachedMessage{
+		ID:        msgID,
 		RoomID:    roomID,
 		SenderID:  senderID,
 		Type:      content.GetType(),
@@ -30,15 +45,16 @@ func InsertMessage(roomID int64, senderID int64, content ChatPayload) (int64, er
 	}
 
 	// 使用 pkg/db/redis 的 RPushWithRetry 将缓存写入 Redis 列表：`cache:send:messages`
-	// 注意：此处不返回数据库插入 id，调用方应以异步/最终一致性为准。
+	// 注意：此处异步入队，立即返回生成的 msgID；最终会写入 MySQL
 	if err := redis.RPushWithRetry(2, "cache:send:messages", raw); err != nil {
 		return 0, err
 	}
-	return 0, nil
+	return msgID, nil
 }
 
 // cachedMessage 是写入 Redis 的缓存结构
 type cachedMessage struct {
+	ID        int64           `json:"id"`
 	RoomID    int64           `json:"room_id"`
 	SenderID  int64           `json:"sender_id"`
 	Type      string          `json:"type"`
@@ -102,12 +118,12 @@ func flushOnce(batchSize int) {
 
 func insertBatch(msgs []cachedMessage) error {
 
-	query := "INSERT INTO chat_messages (room_id, sender_id, type, content, created_at) VALUES "
-	vals := make([]interface{}, 0, len(msgs)*5)
+	query := "INSERT INTO chat_messages (id, room_id, sender_id, type, content, created_at) VALUES "
+	vals := make([]interface{}, 0, len(msgs)*6)
 	placeholders := make([]string, 0, len(msgs))
 	for _, m := range msgs {
-		placeholders = append(placeholders, "(?, ?, ?, ?, ?)")
-		vals = append(vals, m.RoomID, m.SenderID, m.Type, []byte(m.Content), m.CreatedAt)
+		placeholders = append(placeholders, "(?, ?, ?, ?, ?, ?)")
+		vals = append(vals, m.ID, m.RoomID, m.SenderID, m.Type, []byte(m.Content), m.CreatedAt)
 	}
 	query += strings.Join(placeholders, ",")
 

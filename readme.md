@@ -102,5 +102,4 @@ go build -o gostacker.exe
 
 **TODO LIST**
 
-- 消息ID换成Snowflake
 - 支持文件上传，分布式存储
