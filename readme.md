@@ -32,7 +32,7 @@ GoStacker 是一个完整的即时通讯（IM）后端，提供消息发送、�
 推送子系统位于 `pkg/push`，包含以下主要角色：
 
 - Dispatcher：接收上层应用的 PushMessage，将目标用户按策略拆分为子任务并入队（Gateway 模式会按所属 gateway 聚合用户并通过内部 WS 发送给对应 gateway）。
-- GatewayDispatcher：在 Gateway 模式下负责把消息路由到正确的 gateway；若 gateway 不在线则降级到用户离线队列。
+- GatewayDispatcher：在 Gateway 模式下负责把消息路由到正确的 gateway；若 gateway 不在线则降级到用户离线队列。[gateway仓库](https://github.com/ANormalDD/DistrributePusher_Gateway)
 - Standalone Dispatcher：在单进程模式下直接尝试把消息入用户内存发送队列（非阻塞入队），失败时写入 Redis 的 wait/offline 队列。
 - ConnectionHolder + writerLoop：每个用户有一个 ConnectionHolder（包含 websocket.Conn、带缓冲的 sendCh），`writerLoop` 串行化写入以避免 websocket 并发写冲突。
 - 离线/等待队列：
