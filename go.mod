@@ -13,6 +13,7 @@ require (
 	github.com/bytedance/sonic v1.14.0 // indirect
 	github.com/bytedance/sonic/loader v0.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
+	github.com/dchest/siphash v1.2.2 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
@@ -56,6 +57,7 @@ require (
 
 require (
 	github.com/bwmarrin/snowflake v0.3.0
+	github.com/dustinxie/lockfree v0.0.0-20210712051436-ed0ed42fd0d6
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/go-sql-driver/mysql v1.9.3
