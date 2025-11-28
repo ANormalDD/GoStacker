@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-
+	"sync"
 	"go.uber.org/zap"
 )
 
@@ -30,6 +30,7 @@ type Monitor struct {
 	windowdur      int64
 	totalTimeCount int64
 	successCount   int64
+	rwmu 		 sync.RWMutex // to protect concurrent access
 	insertChan     chan *task
 }
 
@@ -61,7 +62,17 @@ func (m *Monitor) CompleteTask(t *task, success bool) {
 	t.success = success
 	m.insertChan <- t
 }
-
+func (m *Monitor) GetStats() (avgTime float64, successRate float64, count int) {
+	m.rwmu.RLock()
+	defer m.rwmu.RUnlock()
+	if m.count == 0 {
+		return 0, 0, 0
+	}
+	avgTime = float64(m.totalTimeCount) / float64(m.count)
+	successRate = float64(m.successCount) / float64(m.count)
+	count = m.count
+	return
+}
 func (m *Monitor) Run() {
 	go func() {
 		// ensure package monitor context is not nil to avoid nil deref
@@ -76,6 +87,7 @@ func (m *Monitor) Run() {
 				zap.L().Info("Monitor " + m.name + " received shutdown signal, exiting")
 				return
 			case t := <-m.insertChan:
+				m.rwmu.Lock()
 				// remove old tasks outside window
 				now := time.Now().UnixMilli()
 				for m.headindex != m.tailindex {
@@ -118,6 +130,7 @@ func (m *Monitor) Run() {
 				if t.success {
 					m.successCount++
 				}
+				m.rwmu.Unlock()
 			}
 		}
 	}()
