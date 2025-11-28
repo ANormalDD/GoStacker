@@ -96,10 +96,12 @@ go build -o gostacker.exe
 
 - Gateway 模式：前端部署多个 Gateway 实例（负责外部 websocket 连接），并把推送服务部署为独立 Dispatcher 服务，Dispatcher 将消息发送到对应 Gateway。这样可以水平扩展外部连接与推送单元。
 - Standalone 模式：适合单机或容器化部署的简单场景，适合小规模或快速验证环境。
-- 使用监控（Prometheus + Grafana）采集关键指标：队列长度、入队延迟、写入失败率、Redis 操作错误率等。
 
 ---
 
 **TODO LIST**
-
+- 使用监控（Prometheus + Grafana）采集关键指标：队列长度、入队延迟、写入失败率、Redis 操作错误率等。
+- 对于redis无法通信或者挂掉时的本地缓存
+- Docker部署
+- 推送消息全链路追踪
 - 支持文件上传，分布式存储
