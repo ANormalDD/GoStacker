@@ -9,6 +9,7 @@ import (
 	user_ws "GoStacker/internal/ws"
 	"GoStacker/pkg/logger"
 	"GoStacker/pkg/middleware"
+	"GoStacker/pkg/monitor"
 	"GoStacker/pkg/response"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +29,7 @@ func NewRouter(PushMod string) *gin.Engine {
 		response.ReplySuccess(c, "pong")
 	})
 
+	g.GET("/metrics", gin.WrapH(monitor.Handler()))
 	g.POST("/register", user.RegisterHandler)
 	g.POST("/login", user.LoginHandler)
 	auth := g.Group("/api", middleware.JWTAuthMiddleware())
