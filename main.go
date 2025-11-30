@@ -9,6 +9,7 @@ import (
 	"GoStacker/pkg/db/mysql"
 	"GoStacker/pkg/db/redis"
 	"GoStacker/pkg/logger"
+	"GoStacker/pkg/monitor"
 	"GoStacker/pkg/push"
 	"GoStacker/pkg/utils"
 	"fmt"
@@ -41,6 +42,7 @@ func main() {
 	}
 	defer redis.Close()
 	utils.SetJWTConfig(config.Conf.JWTConfig)
+	monitor.InitMonitor()
 	if config.Conf.PushMod == "standalone" {
 		push.InitDispatcher(config.Conf.DispatcherConfig)
 		// start group flusher background worker (write-back cache) if enabled

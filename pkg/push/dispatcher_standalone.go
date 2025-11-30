@@ -2,6 +2,7 @@ package push
 
 import (
 	"GoStacker/pkg/config"
+	"GoStacker/pkg/monitor"
 	"context"
 	"encoding/json"
 	"os"
@@ -14,6 +15,7 @@ import (
 
 var dispatcherCtx context.Context
 var dispatcherCancel context.CancelFunc
+var pushWSMonitor *monitor.Monitor
 
 // no worker pool anymore; dispatcher uses per-connection channels
 
@@ -61,6 +63,7 @@ func waitForShutdown() {
 
 func InitDispatcher(Conf *config.DispatcherConfig) {
 	dispatcherCtx, dispatcherCancel = context.WithCancel(context.Background())
+	pushWSMonitor = monitor.NewMonitor("push_ws", 1000, 10000, 60000)
 	go waitForShutdown()
 	go ListeningWaitQueue()
 }
