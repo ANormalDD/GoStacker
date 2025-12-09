@@ -8,7 +8,7 @@ import (
 	"time"
 
 	snowflake "github.com/bwmarrin/snowflake"
-	Redis "github.com/go-redis/redis"
+	Redis "github.com/redis/go-redis/v9"
 )
 
 var sfNode *snowflake.Node

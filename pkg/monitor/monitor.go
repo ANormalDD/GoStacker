@@ -4,16 +4,17 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
-	"sync"
+
 	"go.uber.org/zap"
 )
 
 var monitorCtx context.Context
 var monitorCancel context.CancelFunc
 
-type task struct {
+type Task struct {
 	sTime   int64
 	lTime   int64
 	success bool
@@ -21,7 +22,7 @@ type task struct {
 
 type Monitor struct {
 	name           string
-	tasks          []task
+	tasks          []Task
 	count          int
 	headindex      int
 	tailindex      int
@@ -30,14 +31,14 @@ type Monitor struct {
 	windowdur      int64
 	totalTimeCount int64
 	successCount   int64
-	rwmu 		 sync.RWMutex // to protect concurrent access
-	insertChan     chan *task
+	rwmu           sync.RWMutex // to protect concurrent access
+	insertChan     chan *Task
 }
 
 func NewMonitor(name string, maxLen int, maxTaskTime int64, windowdur int64) *Monitor {
 	m := &Monitor{
 		name:           name,
-		tasks:          make([]task, maxLen),
+		tasks:          make([]Task, maxLen),
 		maxLen:         maxLen,
 		maxTaskTime:    maxTaskTime,
 		windowdur:      windowdur,
@@ -45,22 +46,22 @@ func NewMonitor(name string, maxLen int, maxTaskTime int64, windowdur int64) *Mo
 		tailindex:      0,
 		totalTimeCount: 0,
 		successCount:   0,
-		insertChan:     make(chan *task, maxLen),
+		insertChan:     make(chan *Task, maxLen),
 	}
 	// auto-register new monitor for exporters
 	registerMonitor(m)
 	return m
 }
 
-func NewTask() *task {
-	return &task{
+func NewTask() *Task {
+	return &Task{
 		sTime:   time.Now().UnixMilli(),
 		lTime:   0,
 		success: false,
 	}
 }
 
-func (m *Monitor) CompleteTask(t *task, success bool) {
+func (m *Monitor) CompleteTask(t *Task, success bool) {
 	t.lTime = time.Now().UnixMilli()
 	t.success = success
 	m.insertChan <- t

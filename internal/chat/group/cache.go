@@ -1,14 +1,14 @@
 package group
 
 import (
+	cfg "GoStacker/pkg/config"
 	rdb "GoStacker/pkg/db/redis"
+	"context"
 	"fmt"
 	"strconv"
 	"time"
 
-	cfg "GoStacker/pkg/config"
-
-	gredis "github.com/go-redis/redis"
+	gredis "github.com/redis/go-redis/v9"
 )
 
 const (
@@ -53,16 +53,16 @@ func AddRoomMemberCache(roomID int64, userID int64) error {
 	}
 	// mark dirty
 	score := float64(time.Now().Unix())
-	if err := rdb.Rdb.ZAdd(groupsDirtyKey, gredis.Z{Score: score, Member: strconv.FormatInt(roomID, 10)}).Err(); err != nil {
+	if err := rdb.Rdb.ZAdd(context.Background(), groupsDirtyKey, gredis.Z{Score: score, Member: strconv.FormatInt(roomID, 10)}).Err(); err != nil {
 		return err
 	}
-	if err := rdb.Rdb.ZAdd(usersDirtyKey, gredis.Z{Score: score, Member: strconv.FormatInt(userID, 10)}).Err(); err != nil {
+	if err := rdb.Rdb.ZAdd(context.Background(), usersDirtyKey, gredis.Z{Score: score, Member: strconv.FormatInt(userID, 10)}).Err(); err != nil {
 		return err
 	}
 	// 设置/续期缓存 TTL
 	// 标脏时保护 key 不被过期（持久化），以确保后台有机会把脏数据写回 DB
-	_ = rdb.Rdb.Persist(gkey).Err()
-	_ = rdb.Rdb.Persist(ukey).Err()
+	_ = rdb.Rdb.Persist(context.Background(), gkey).Err()
+	_ = rdb.Rdb.Persist(context.Background(), ukey).Err()
 	return nil
 }
 
@@ -73,7 +73,7 @@ func AddRoomMembersCache(roomID int64, userIDs []int64) error {
 	for _, u := range userIDs {
 		members = append(members, strconv.FormatInt(u, 10))
 	}
-	if err := rdb.Rdb.SAdd(gkey, members...).Err(); err != nil {
+	if err := rdb.Rdb.SAdd(context.Background(), gkey, members...).Err(); err != nil {
 		// fallback to retry helper
 		if err := rdb.SAddWithRetry(redisRetry, gkey, members...); err != nil {
 			return err
@@ -86,19 +86,19 @@ func AddRoomMembersCache(roomID int64, userIDs []int64) error {
 		if err := rdb.SAddWithRetry(redisRetry, ukey, roomStr); err != nil {
 			return err
 		}
-		if err := rdb.Rdb.ZAdd(usersDirtyKey, gredis.Z{Score: score, Member: strconv.FormatInt(u, 10)}).Err(); err != nil {
+		if err := rdb.Rdb.ZAdd(context.Background(), usersDirtyKey, gredis.Z{Score: score, Member: strconv.FormatInt(u, 10)}).Err(); err != nil {
 			return err
 		}
 	}
 	// mark group dirty
-	if err := rdb.Rdb.ZAdd(groupsDirtyKey, gredis.Z{Score: score, Member: roomStr}).Err(); err != nil {
+	if err := rdb.Rdb.ZAdd(context.Background(), groupsDirtyKey, gredis.Z{Score: score, Member: roomStr}).Err(); err != nil {
 		return err
 	}
 	// 设置/续期缓存 TTL
 	// 标脏时保护 key 不被过期（持久化）
-	_ = rdb.Rdb.Persist(gkey).Err()
+	_ = rdb.Rdb.Persist(context.Background(), gkey).Err()
 	for _, u := range userIDs {
-		_ = rdb.Rdb.Persist(fmt.Sprintf(userJoinedKeyFmt, u)).Err()
+		_ = rdb.Rdb.Persist(context.Background(), fmt.Sprintf(userJoinedKeyFmt, u)).Err()
 	}
 	return nil
 }
@@ -108,21 +108,21 @@ func RemoveRoomMemberCache(roomID int64, userID int64) error {
 	ukey := userJoinedKey(userID)
 	memberStr := strconv.FormatInt(userID, 10)
 	roomStr := strconv.FormatInt(roomID, 10)
-	if err := rdb.Rdb.SRem(gkey, memberStr).Err(); err != nil && err != gredis.Nil {
+	if err := rdb.Rdb.SRem(context.Background(), gkey, memberStr).Err(); err != nil && err != gredis.Nil {
 		return err
 	}
-	if err := rdb.Rdb.SRem(ukey, roomStr).Err(); err != nil && err != gredis.Nil {
+	if err := rdb.Rdb.SRem(context.Background(), ukey, roomStr).Err(); err != nil && err != gredis.Nil {
 		return err
 	}
 	score := float64(time.Now().Unix())
-	if err := rdb.Rdb.ZAdd(groupsDirtyKey, gredis.Z{Score: score, Member: roomStr}).Err(); err != nil {
+	if err := rdb.Rdb.ZAdd(context.Background(), groupsDirtyKey, gredis.Z{Score: score, Member: roomStr}).Err(); err != nil {
 		return err
 	}
-	if err := rdb.Rdb.ZAdd(usersDirtyKey, gredis.Z{Score: score, Member: strconv.FormatInt(userID, 10)}).Err(); err != nil {
+	if err := rdb.Rdb.ZAdd(context.Background(), usersDirtyKey, gredis.Z{Score: score, Member: strconv.FormatInt(userID, 10)}).Err(); err != nil {
 		return err
 	}
-	_ = rdb.Rdb.Expire(gkey, getCacheTTL()).Err()
-	_ = rdb.Rdb.Persist(gkey).Err()
+	_ = rdb.Rdb.Expire(context.Background(), gkey, getCacheTTL()).Err()
+	_ = rdb.Rdb.Persist(context.Background(), gkey).Err()
 	return nil
 }
 
@@ -135,10 +135,10 @@ func GetRoomMemberIDsCache(roomID int64) ([]int64, error) {
 	// 访问时续期
 	// 如果这个 group 当前在 dirty 集合中，保持持久化，防止被过期清理；否则做滑动 TTL
 	roomStr := strconv.FormatInt(roomID, 10)
-	if score, err := rdb.Rdb.ZScore(groupsDirtyKey, roomStr).Result(); err == nil && score > 0 {
-		_ = rdb.Rdb.Persist(gkey).Err()
+	if score, err := rdb.Rdb.ZScore(context.Background(), groupsDirtyKey, roomStr).Result(); err == nil && score > 0 {
+		_ = rdb.Rdb.Persist(context.Background(), gkey).Err()
 	} else {
-		_ = rdb.Rdb.Expire(gkey, getCacheTTL()).Err()
+		_ = rdb.Rdb.Expire(context.Background(), gkey, getCacheTTL()).Err()
 	}
 	res := make([]int64, 0, len(vals))
 	for _, s := range vals {
@@ -157,17 +157,17 @@ func GetRoomMemberIDsCache(roomID int64) ([]int64, error) {
 func IsRoomMemberCache(roomID int64, userID int64) (bool, error) {
 	gkey := groupMembersKey(roomID)
 	memberStr := strconv.FormatInt(userID, 10)
-	exists, err := rdb.Rdb.SIsMember(gkey, memberStr).Result()
+	exists, err := rdb.Rdb.SIsMember(context.Background(), gkey, memberStr).Result()
 	if err != nil {
 		return false, err
 	}
 	// 访问时续期
 	// 访问时，如果该 key 在 dirty 集合中则保持持久化，否则续期
 	roomStr := strconv.FormatInt(roomID, 10)
-	if score, err := rdb.Rdb.ZScore(groupsDirtyKey, roomStr).Result(); err == nil && score > 0 {
-		_ = rdb.Rdb.Persist(gkey).Err()
+	if score, err := rdb.Rdb.ZScore(context.Background(), groupsDirtyKey, roomStr).Result(); err == nil && score > 0 {
+		_ = rdb.Rdb.Persist(context.Background(), gkey).Err()
 	} else {
-		_ = rdb.Rdb.Expire(gkey, getCacheTTL()).Err()
+		_ = rdb.Rdb.Expire(context.Background(), gkey, getCacheTTL()).Err()
 	}
 	return exists, nil
 }
@@ -175,7 +175,7 @@ func IsRoomMemberCache(roomID int64, userID int64) (bool, error) {
 // PopDirtyGroups returns up to n dirty roomIDs (as int64). It does NOT remove them; caller decides when to remove.
 func PopDirtyGroups(n int64) ([]int64, error) {
 	// take smallest scores (oldest)
-	vals, err := rdb.Rdb.ZRange(groupsDirtyKey, 0, n-1).Result()
+	vals, err := rdb.Rdb.ZRange(context.Background(), groupsDirtyKey, 0, n-1).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -191,11 +191,11 @@ func PopDirtyGroups(n int64) ([]int64, error) {
 }
 
 func RemoveDirtyGroup(roomID int64) error {
-	return rdb.Rdb.ZRem(groupsDirtyKey, strconv.FormatInt(roomID, 10)).Err()
+	return rdb.Rdb.ZRem(context.Background(), groupsDirtyKey, strconv.FormatInt(roomID, 10)).Err()
 }
 
 func PopDirtyUsers(n int64) ([]int64, error) {
-	vals, err := rdb.Rdb.ZRange(usersDirtyKey, 0, n-1).Result()
+	vals, err := rdb.Rdb.ZRange(context.Background(), usersDirtyKey, 0, n-1).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +211,7 @@ func PopDirtyUsers(n int64) ([]int64, error) {
 }
 
 func RemoveDirtyUser(userID int64) error {
-	return rdb.Rdb.ZRem(usersDirtyKey, strconv.FormatInt(userID, 10)).Err()
+	return rdb.Rdb.ZRem(context.Background(), usersDirtyKey, strconv.FormatInt(userID, 10)).Err()
 }
 
 func GetUserJoinedRoomsCache(userID int64) ([]int64, error) {
@@ -223,10 +223,10 @@ func GetUserJoinedRoomsCache(userID int64) ([]int64, error) {
 	// 访问时续期
 	// 访问时，如果该 key 在 dirty 集合中则保持持久化，否则续期
 	userStr := strconv.FormatInt(userID, 10)
-	if score, err := rdb.Rdb.ZScore(usersDirtyKey, userStr).Result(); err == nil && score > 0 {
-		_ = rdb.Rdb.Persist(ukey).Err()
+	if score, err := rdb.Rdb.ZScore(context.Background(), usersDirtyKey, userStr).Result(); err == nil && score > 0 {
+		_ = rdb.Rdb.Persist(context.Background(), ukey).Err()
 	} else {
-		_ = rdb.Rdb.Expire(ukey, defaultCacheTTL).Err()
+		_ = rdb.Rdb.Expire(context.Background(), ukey, defaultCacheTTL).Err()
 	}
 	res := make([]int64, 0, len(vals))
 	for _, s := range vals {

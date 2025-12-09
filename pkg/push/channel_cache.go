@@ -3,12 +3,13 @@ package push
 import (
 	"GoStacker/pkg/db/redis"
 
+	"context"
 	"encoding/json"
 	"strconv"
 	"sync"
 	"time"
 
-	Redis "github.com/go-redis/redis"
+	Redis "github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -63,7 +64,7 @@ func InsertOfflineQueue(userID int64, marshaledMsg string) {
 	}
 }
 
-func InsertWaitQueue(userID int64, marshaledMsg string)  {
+func InsertWaitQueue(userID int64, marshaledMsg string) {
 	InsertWaitSet(userID)
 	err := redis.RPushWithRetry(2, "wait:push:"+strconv.FormatInt(userID, 10), marshaledMsg)
 	if err != nil {
@@ -74,13 +75,13 @@ func InsertWaitQueue(userID int64, marshaledMsg string)  {
 
 // 登录时将存在redis中的离线消息推送给用户，然后删除redis中的离线消息
 func PushOfflineMessages(userID int64) {
-	lenOfList, err := redis.Rdb.LLen("offline:push:" + strconv.FormatInt(userID, 10)).Result()
+	lenOfList, err := redis.Rdb.LLen(context.Background(), "offline:push:"+strconv.FormatInt(userID, 10)).Result()
 	if err != nil {
 		if err != Redis.Nil {
 			zap.L().Error("Failed to get length of offline message list", zap.Int64("userID", userID), zap.Error(err))
 			//retry once
 			time.Sleep(100 * time.Millisecond)
-			lenOfList, err = redis.Rdb.LLen("offline:push:" + strconv.FormatInt(userID, 10)).Result()
+			lenOfList, err = redis.Rdb.LLen(context.Background(), "offline:push:"+strconv.FormatInt(userID, 10)).Result()
 			if err != nil {
 				zap.L().Error("Failed to get length of offline message list again, giving up", zap.Int64("userID", userID), zap.Error(err))
 				return
@@ -222,7 +223,7 @@ func ListeningWaitQueue() {
 				return false // stop iteration when queue is busy
 			}
 			// if wait queue is empty remove from local waitSet
-			lenOfWaitQueue, err := redis.Rdb.LLen("wait:push:" + uidStr).Result()
+			lenOfWaitQueue, err := redis.Rdb.LLen(context.Background(), "wait:push:"+uidStr).Result()
 			if err != nil {
 				if err != Redis.Nil {
 					zap.L().Error("Failed to get length of wait push queue", zap.Int64("userID", uid), zap.Error(err))

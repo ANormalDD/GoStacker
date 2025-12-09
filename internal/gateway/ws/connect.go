@@ -33,13 +33,11 @@ func WebSocketHandler(c *gin.Context) {
 		return
 	}
 
-	// gateway 标识优先从 query 获取，然后从 Header 获取
 	gatewayID := c.Query("gateway_id")
 	if gatewayID == "" {
 		gatewayID = c.GetHeader("Gateway-ID")
 	}
 	if gatewayID == "" {
-		// 无 id，直接关闭
 		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "missing gateway_id"))
 		conn.Close()
 		return

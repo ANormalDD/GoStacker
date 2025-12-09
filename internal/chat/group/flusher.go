@@ -4,13 +4,14 @@ import (
 	cfg "GoStacker/pkg/config"
 	"GoStacker/pkg/db/mysql"
 	rdb "GoStacker/pkg/db/redis"
+	"context"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
 	"time"
 
-	gredis "github.com/go-redis/redis"
+	gredis "github.com/redis/go-redis/v9"
 )
 
 func RunGroupFlusher(interval time.Duration, batchSize int, stopCh <-chan struct{}) {
@@ -42,7 +43,7 @@ func RunGroupFlusher(interval time.Duration, batchSize int, stopCh <-chan struct
 func CleanStaleDirty(retention time.Duration) {
 	cutoff := time.Now().Add(-retention).Unix()
 	// 获取过期的 group ids（score <= cutoff）并尝试写回
-	groupVals, err := rdb.Rdb.ZRangeByScore(groupsDirtyKey, gredis.ZRangeBy{Min: "-inf", Max: fmt.Sprintf("%d", cutoff)}).Result()
+	groupVals, err := rdb.Rdb.ZRangeByScore(context.Background(), groupsDirtyKey, &gredis.ZRangeBy{Min: "-inf", Max: fmt.Sprintf("%d", cutoff)}).Result()
 	if err != nil {
 		log.Printf("flusher: fetch stale groups dirty error: %v", err)
 	} else {
@@ -58,13 +59,13 @@ func CleanStaleDirty(retention time.Duration) {
 				continue
 			}
 			// remove dirty mark after successful writeBack
-			if err := rdb.Rdb.ZRem(groupsDirtyKey, s).Err(); err != nil {
+			if err := rdb.Rdb.ZRem(context.Background(), groupsDirtyKey, s).Err(); err != nil {
 				log.Printf("flusher: remove stale group dirty mark failed for %d: %v", id, err)
 			}
 		}
 	}
 	// 获取过期的 user ids 并尝试写回
-	userVals, err := rdb.Rdb.ZRangeByScore(usersDirtyKey, gredis.ZRangeBy{Min: "-inf", Max: fmt.Sprintf("%d", cutoff)}).Result()
+	userVals, err := rdb.Rdb.ZRangeByScore(context.Background(), usersDirtyKey, &gredis.ZRangeBy{Min: "-inf", Max: fmt.Sprintf("%d", cutoff)}).Result()
 	if err != nil {
 		log.Printf("flusher: fetch stale users dirty error: %v", err)
 	} else {
@@ -77,7 +78,7 @@ func CleanStaleDirty(retention time.Duration) {
 				log.Printf("flusher: writeBackUser failed for %d: %v", id, err)
 				continue
 			}
-			if err := rdb.Rdb.ZRem(usersDirtyKey, s).Err(); err != nil {
+			if err := rdb.Rdb.ZRem(context.Background(), usersDirtyKey, s).Err(); err != nil {
 				log.Printf("flusher: remove stale user dirty mark failed for %d: %v", id, err)
 			}
 		}

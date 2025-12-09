@@ -3,6 +3,7 @@ package group
 import (
 	"GoStacker/pkg/db/mysql"
 	rdb "GoStacker/pkg/db/redis"
+	"context"
 	"database/sql"
 	"fmt"
 	"strconv"
@@ -142,7 +143,7 @@ func QueryJoinedRooms(userID int64) ([]int64, error) {
 		for _, r := range roomIDs {
 			members = append(members, strconv.FormatInt(r, 10))
 		}
-		_ = rdb.Rdb.SAdd(fmt.Sprintf("users:joined:%d", userID), members...)
+		_ = rdb.Rdb.SAdd(context.Background(), fmt.Sprintf("users:joined:%d", userID), members...)
 	}
 	return roomIDs, nil
 }
@@ -174,7 +175,7 @@ func QueryRoomMemberIDs(roomID int64) ([]int64, error) {
 		for _, u := range memberIDs {
 			members = append(members, strconv.FormatInt(u, 10))
 		}
-		_ = rdb.Rdb.SAdd(fmt.Sprintf("groups:members:%d", roomID), members...)
+		_ = rdb.Rdb.SAdd(context.Background(), fmt.Sprintf("groups:members:%d", roomID), members...)
 	}
 	return memberIDs, nil
 }
