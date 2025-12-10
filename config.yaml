@@ -34,6 +34,7 @@ redis:
 group_cache:
   enabled: true
   cache_ttl_seconds: 86400        # 24 hours
+  post_flush_ttl_seconds: 5
   dirty_retention_seconds: 604800 # 7 days
   flush_interval_seconds: 5       # flusher tick interval
   batch_size: 100

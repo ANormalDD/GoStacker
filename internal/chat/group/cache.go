@@ -19,6 +19,8 @@ const (
 	redisRetry         = 3
 	// 默认缓存 TTL，读写时会续期。可改为可配置项。
 	defaultCacheTTL = 24 * time.Hour
+	// 默认写回后短期保留 TTL（若配置未设置），例如 5 秒
+	defaultPostFlushTTL = 5 * time.Second
 )
 
 func groupMembersKey(roomID int64) string {
@@ -36,6 +38,17 @@ func getCacheTTL() time.Duration {
 		}
 	}
 	return defaultCacheTTL
+}
+
+// getPostFlushTTL returns TTL to set on cache keys after a successful DB flush.
+func getPostFlushTTL() time.Duration {
+	if cfg.Conf != nil && cfg.Conf.GroupCacheConfig != nil {
+		ttl := time.Duration(cfg.Conf.GroupCacheConfig.PostFlushTTLSeconds) * time.Second
+		if ttl > 0 {
+			return ttl
+		}
+	}
+	return defaultPostFlushTTL
 }
 
 func AddRoomMemberCache(roomID int64, userID int64) error {

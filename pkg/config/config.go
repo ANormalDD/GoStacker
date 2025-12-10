@@ -54,8 +54,11 @@ type RedisConfig struct {
 	BatchSize int    `mapstructure:"batch_size"`
 }
 type GroupCacheConfig struct {
-	Enabled               bool  `mapstructure:"enabled"`
-	CacheTTLSeconds       int64 `mapstructure:"cache_ttl_seconds"`
+	Enabled         bool  `mapstructure:"enabled"`
+	CacheTTLSeconds int64 `mapstructure:"cache_ttl_seconds"`
+	// PostFlushTTLSeconds defines how long to keep cache after a successful DB flush.
+	// If >0, flusher will set this TTL on the cache key after removing the dirty mark.
+	PostFlushTTLSeconds   int64 `mapstructure:"post_flush_ttl_seconds"`
 	DirtyRetentionSeconds int64 `mapstructure:"dirty_retention_seconds"`
 	FlushIntervalSeconds  int64 `mapstructure:"flush_interval_seconds"`
 	BatchSize             int   `mapstructure:"batch_size"`

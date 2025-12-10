@@ -198,9 +198,15 @@ func processDirtyGroups(batch int) {
 			log.Printf("flusher: commit failed for room %d: %v", roomID, err)
 			continue
 		}
-		// remove dirty mark
-		if err := RemoveDirtyGroup(roomID); err != nil {
-			log.Printf("flusher: remove dirty mark failed for room %d: %v", roomID, err)
+		// atomically remove dirty mark and set a short TTL on the cache key
+		roomStr := strconv.FormatInt(roomID, 10)
+		postTTL := getPostFlushTTL()
+		if _, err := rdb.Rdb.TxPipelined(context.Background(), func(pipe gredis.Pipeliner) error {
+			pipe.ZRem(context.Background(), groupsDirtyKey, roomStr)
+			pipe.Expire(context.Background(), groupMembersKey(roomID), postTTL)
+			return nil
+		}); err != nil {
+			log.Printf("flusher: remove dirty + expire pipeline failed for room %d: %v", roomID, err)
 		}
 	}
 }
@@ -232,8 +238,15 @@ func processDirtyUsers(batch int) {
 			log.Printf("flusher: update joined_chatrooms failed for user %d: %v", userID, err)
 			continue
 		}
-		if err := RemoveDirtyUser(userID); err != nil {
-			log.Printf("flusher: remove dirty user mark failed for user %d: %v", userID, err)
+		// atomically remove dirty mark and set a short TTL on the user's joined set
+		userStr := strconv.FormatInt(userID, 10)
+		postTTL := getPostFlushTTL()
+		if _, err := rdb.Rdb.TxPipelined(context.Background(), func(pipe gredis.Pipeliner) error {
+			pipe.ZRem(context.Background(), usersDirtyKey, userStr)
+			pipe.Expire(context.Background(), userJoinedKey(userID), postTTL)
+			return nil
+		}); err != nil {
+			log.Printf("flusher: remove dirty + expire pipeline failed for user %d: %v", userID, err)
 		}
 	}
 }
