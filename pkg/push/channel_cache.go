@@ -1,8 +1,8 @@
 package push
 
 import (
+	"GoStacker/pkg/config"
 	"GoStacker/pkg/db/redis"
-
 	"context"
 	"encoding/json"
 	"strconv"
@@ -59,7 +59,7 @@ func InsertWaitMsg(userID int64, msg string) {
 func InsertOfflineQueue(userID int64, marshaledMsg string) {
 	err := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10), marshaledMsg)
 	if err != nil {
-		zap.L().Error("Failed to RPush offline push message,try store local", zap.Int64("userID", userID), zap.Error(err))
+		zap.L().Error("Failed toed to RPush offline push message,try store local", zap.Int64("userID", userID), zap.Error(err))
 		InsertOfflineMsg(userID, marshaledMsg)
 	}
 }
@@ -71,6 +71,26 @@ func InsertWaitQueue(userID int64, marshaledMsg string) {
 		zap.L().Error("Failed to RPush wait push message,try store local", zap.Int64("userID", userID), zap.Error(err))
 		InsertWaitMsg(userID, marshaledMsg)
 	}
+}
+func PushSingleMsg(userID int64, msg ClientMessage) error {
+	PushMod := config.Conf.PushMod
+	if PushMod == "gateway" {
+		return PushSingleViaGateway(userID, msg)
+	} else {
+		err := PushViaWSWithRetry(userID, 2, 10*time.Second, msg)
+		if err != nil {
+			raw, _ := json.Marshal(msg)
+			err2 := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10), raw)
+			if err2 != nil {
+				zap.L().Error("Failed to RPush offline message back .Message missed", zap.Int64("userID", userID), zap.Error(err2))
+			}
+			if err != ErrNoConn {
+				RemoveConnection(userID)
+			}
+			return err
+		}
+	}
+	return nil
 }
 
 // 登录时将存在redis中的离线消息推送给用户，然后删除redis中的离线消息
@@ -97,22 +117,11 @@ func PushOfflineMessages(userID int64) {
 	for i := int64(0); i < lenOfList; i++ {
 		if nowSize >= batchSize {
 			// push current batch
-			err = PushViaWSWithRetry(userID, 2, 10*time.Second, ClientMessage{
+			PushSingleMsg(userID, ClientMessage{
 				ID:      -1,
 				Type:    "batch",
 				Payload: messages,
 			})
-			if err != nil {
-				raw, _ := json.Marshal(messages)
-				err2 := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10), raw)
-				if err2 != nil {
-					zap.L().Error("Failed to RPush offline message back .Message missed", zap.Int64("userID", userID), zap.Error(err2))
-				}
-				if err != ErrNoConn {
-					RemoveConnection(userID)
-				}
-			}
-			// reset batch
 			messages = []ClientMessage{}
 			nowSize = 0
 		}
@@ -125,7 +134,7 @@ func PushOfflineMessages(userID int64) {
 			// Log the error and break to avoid infinite loop
 			zap.L().Error("Failed to LPop offline message", zap.Int64("userID", userID), zap.Error(err))
 			//info client that there are offline messages but failed to get them
-			err = PushViaWSWithRetry(userID, 2, 10*time.Second, ClientMessage{
+			err = PushSingleMsg(userID, ClientMessage{
 				ID:      -1,
 				Type:    "info",
 				Payload: "You have offline messages but failed to retrieve them.",
@@ -145,7 +154,7 @@ func PushOfflineMessages(userID int64) {
 		messages = append(messages, clientMsg)
 	}
 	if len(messages) > 0 {
-		err = PushViaWSWithRetry(userID, 2, 10*time.Second, ClientMessage{
+		err = PushSingleMsg(userID, ClientMessage{
 			ID:      -1,
 			Type:    "batch",
 			Payload: messages,

@@ -69,23 +69,23 @@ func main() {
 			batch := 100
 			chatsend.StartMessageFlusher(interval, batch, stopCh)
 		}()
+	}else {
+		mid.RegisterPushOfflineMessagesFuc(push.PushOfflineMessages)
+		// start gateway dispatcher worker pool (configured via config.dispatcher)
+		gwWorkers := 0
+		gwQueue := 0
+		if config.Conf != nil && config.Conf.DispatcherConfig != nil {
+			gwWorkers = config.Conf.DispatcherConfig.GatewayWorkerCount
+			gwQueue = config.Conf.DispatcherConfig.GatewayQueueSize
+		}
+		if gwWorkers <= 0 {
+			gwWorkers = runtime.NumCPU()
+		}
+		if gwQueue <= 0 {
+			gwQueue = 1024
+		}
+		push.StartGatewayDispatcher(gwWorkers, gwQueue)
 	}
-	mid.RegisterPushOfflineMessagesFuc(push.PushOfflineMessages)
-	// start gateway dispatcher worker pool (configured via config.dispatcher)
-	gwWorkers := 0
-	gwQueue := 0
-	if config.Conf != nil && config.Conf.DispatcherConfig != nil {
-		gwWorkers = config.Conf.DispatcherConfig.GatewayWorkerCount
-		gwQueue = config.Conf.DispatcherConfig.GatewayQueueSize
-	}
-	if gwWorkers <= 0 {
-		gwWorkers = runtime.NumCPU()
-	}
-	if gwQueue <= 0 {
-		gwQueue = 1024
-	}
-	push.StartGatewayDispatcher(gwWorkers, gwQueue)
-	server.Start(config.Conf.PushMod)
-
+server.Start(config.Conf.PushMod)
 	defer zap.L().Info("service exit")
 }

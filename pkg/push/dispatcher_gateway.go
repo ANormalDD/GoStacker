@@ -77,6 +77,26 @@ func Dispatch_gateway(msg PushMessage) error {
 	return nil
 }
 
+func PushSingleViaGateway(userID int64, msg ClientMessage) error {
+	gid, ok := userConn.GetGatewayIDByUserID(userID)
+	if !ok {
+		return errors.New("no gateway found for user")
+	}
+	gwMsg := PushMessage{
+		ID:        msg.ID,
+		Type:      msg.Type,
+		RoomID:    msg.RoomID,
+		SenderID:  msg.SenderID,
+		TargetIDs: []int64{userID},
+		Payload:   msg.Payload,
+	}
+	// send to gateway via internal ws manager; use 10s write timeout
+	if err := gw.SendToGateway(gid, 10*time.Second, gwMsg); err != nil {
+		return err
+	}
+	return nil
+}
+
 func gatewayWorker() {
 	for msg := range gatewayQueue {
 		// group target ids by gateway id
@@ -98,9 +118,7 @@ func gatewayWorker() {
 					zap.L().Error("gateway dispatch: marshal offline client msg failed", zap.Error(err), zap.Int64("user", uid))
 					continue
 				}
-				if err := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(uid, 10), marshaledMsg); err != nil {
-					zap.L().Error("gateway dispatch: rpush offline failed", zap.Error(err), zap.Int64("user", uid))
-				}
+				InsertOfflineQueue(uid, string(marshaledMsg))
 			}
 		}
 
