@@ -1,8 +1,8 @@
 package push
 
 import (
-	"GoStacker/internal/gateway/userConn"
-	gw "GoStacker/internal/gateway/ws"
+	"GoStacker/internal/send/gateway/userConn"
+	gw "GoStacker/internal/send/gateway/ws"
 	"GoStacker/pkg/db/redis"
 	"encoding/json"
 	"errors"

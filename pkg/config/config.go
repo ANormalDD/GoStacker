@@ -19,12 +19,14 @@ type AppConfig struct {
 	PushMod   string `mapstructure:"push_mod"`
 	Address   string `mapstructure:"address"`
 
-	*LogConfig        `mapstructure:"log"`
-	*MySQLConfig      `mapstructure:"mysql"`
-	*RedisConfig      `mapstructure:"redis"`
-	*GroupCacheConfig `mapstructure:"group_cache"`
-	*JWTConfig        `mapstructure:"jwt"`
-	*DispatcherConfig `mapstructure:"dispatcher"`
+	*LogConfig               `mapstructure:"log"`
+	*MySQLConfig             `mapstructure:"mysql"`
+	*RedisConfig             `mapstructure:"redis"`
+	*GroupCacheConfig        `mapstructure:"group_cache"`
+	*JWTConfig               `mapstructure:"jwt"`
+	*SendDispatcherConfig    `mapstructure:"send_dispatcher"`
+	*GatewayDispatcherConfig `mapstructure:"dispatcher"`
+	*CenterConfig            `mapstructure:"center"`
 }
 
 type LogConfig struct {
@@ -69,16 +71,21 @@ type JWTConfig struct {
 	ExpireDuration int    `mapstructure:"expire_duration"`
 }
 
-type DispatcherConfig struct {
-	// SendChannelSize defines the buffer size for per-connection send channels.
-	// Replaces previous worker-pool related settings.
-	SendChannelSize int `mapstructure:"send_channel_size"`
-	// GatewayWorkerCount controls number of workers for gateway dispatcher.
-	// If 0, code will fall back to runtime.NumCPU().
+type SendDispatcherConfig struct {
+	SendChannelSize    int `mapstructure:"send_channel_size"`
 	GatewayWorkerCount int `mapstructure:"gateway_worker_count"`
-	// GatewayQueueSize controls the internal queue size for gateway dispatcher.
-	// If 0, a sensible default (1024) will be used.
-	GatewayQueueSize int `mapstructure:"gateway_queue_size"`
+	GatewayQueueSize   int `mapstructure:"gateway_queue_size"`
+}
+
+type GatewayDispatcherConfig struct {
+	WorkerCount     int `mapstructure:"worker_count"`
+	TaskQueueSize   int `mapstructure:"task_queue_size"`
+	MaxConnections  int `mapstructure:"max_connections"`
+	SendChannelSize int `mapstructure:"send_channel_size"`
+}
+
+type CenterConfig struct {
+	Address string `mapstructure:"address"`
 }
 
 func Init() (err error) {
@@ -94,6 +101,30 @@ func Init() (err error) {
 		fmt.Printf("viper.Unmarshal failed, err:%v\n", err)
 	}
 	// 监听配置文件变化
+	viper.WatchConfig()
+	viper.OnConfigChange(func(in fsnotify.Event) {
+		fmt.Println("配置文件修改了...")
+		if err = viper.Unmarshal(Conf); err != nil {
+			fmt.Printf("viper.Unmarshal failed, err:%v\n", err)
+		}
+	})
+	return
+}
+
+// InitFromFile initializes configuration from a specific file path.
+// This function does not change the behavior of the existing Init().
+func InitFromFile(path string) (err error) {
+	viper.SetConfigFile(path)
+	viper.SetConfigType("yaml")
+	err = viper.ReadInConfig()
+	if err != nil {
+		fmt.Printf("viper.ReadInConfig() failed, err:%v\n", err)
+		return
+	}
+	if err = viper.Unmarshal(Conf); err != nil {
+		fmt.Printf("viper.Unmarshal failed, err:%v\n", err)
+	}
+	// Watch config changes on the provided file path as well
 	viper.WatchConfig()
 	viper.OnConfigChange(func(in fsnotify.Event) {
 		fmt.Println("配置文件修改了...")

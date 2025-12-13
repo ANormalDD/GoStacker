@@ -1,12 +1,8 @@
-package server
+package main
 
 import (
 	"GoStacker/internal/meta/chat/group"
-	"GoStacker/internal/send/chat/send"
-	gateway_ws "GoStacker/internal/send/gateway/ws"
-	"GoStacker/internal/send/getGatewayAddr"
 	"GoStacker/internal/meta/user"
-	user_ws "GoStacker/internal/send/ws"
 	"GoStacker/pkg/logger"
 	"GoStacker/pkg/middleware"
 	"GoStacker/pkg/monitor"
@@ -15,23 +11,22 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// NewRouter creates and returns a gin.Engine with middleware and routes registered.
-// Put route registration here so `cmd/server/main.go` stays concise.
-func NewRouter(PushMod string) *gin.Engine {
-	// Use gin in release mode in production
+// NewRouter creates a gin engine for the meta service.
+// It registers health/metrics, register/login and metadata (group/user) routes.
+func NewRouter() *gin.Engine {
 	gin.SetMode(gin.ReleaseMode)
 	g := gin.New()
-	// register logger and recovery from pkg/logger
 	g.Use(logger.GinLogger(), logger.GinRecovery(true))
 
-	// health check
-	g.GET("/ping", func(c *gin.Context) {
-		response.ReplySuccess(c, "pong")
-	})
-
+	// health and metrics
+	g.GET("/ping", func(c *gin.Context) { response.ReplySuccess(c, "pong") })
 	g.GET("/metrics", gin.WrapH(monitor.Handler()))
+
+	// auth endpoints
 	g.POST("/register", user.RegisterHandler)
 	g.POST("/login", user.LoginHandler)
+
+	// authenticated metadata routes
 	auth := g.Group("/api", middleware.JWTAuthMiddleware())
 	{
 		auth.POST("/chat/group/create", group.CreateRoomHandler)
@@ -40,17 +35,7 @@ func NewRouter(PushMod string) *gin.Engine {
 		auth.POST("/chat/group/change_nickname", group.ChangeNicknameHandler)
 		auth.POST("/chat/group/change_member_role", group.ChangeMemberRoleHandler)
 		auth.POST("/chat/group/remove_member", group.RemoveMemberHandler)
-		if PushMod == "standalone" {
-			auth.GET("/ws", user_ws.WebSocketHandler)
-		}
-		auth.GET("/get_gateway_ws", getGatewayAddr.GetGatewayAddrHandler)
-		auth.POST("/chat/send_message", send.SendMessageHandler)
 	}
-	if PushMod == "gateway" {
-		gateway := g.Group("/gateway")
-		{
-			gateway.GET("/ws", gateway_ws.WebSocketHandler)
-		}
-	}
+
 	return g
 }

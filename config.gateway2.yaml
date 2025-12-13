@@ -1,0 +1,43 @@
+port: 8084
+name: "gostacker-gateway"
+mode: "prod"
+version: "0.1"
+start_time: ""
+machine_id: 4
+address: "127.0.0.1"
+
+log:
+  level: "info"
+  filename: "logs/gateway2.log"
+  max_size: 100
+  max_backups: 7
+  max_age: 30
+
+mysql:
+  host: "127.0.0.1"
+  port: 3306
+  user: "root"
+  password: "root"
+  dbname: "GoStacker"
+  max_open_conns: 200
+  max_idle_conns: 50
+
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 10
+  batch_size: 100
+
+jwt:
+  secret: "secret"
+  expire_duration: 7200
+
+center:
+  address: "ws://127.0.0.1:8081/gateway/ws?gateway_id=test_gateway2"
+
+dispatcher:
+  worker_count: 4
+  task_queue_size: 1024
+  max_connections: 10000

@@ -48,11 +48,15 @@ class PyClientGUI(QtWidgets.QWidget):
     def _build_ui(self):
         layout = QtWidgets.QVBoxLayout(self)
 
-        # Backend URL
+        # Backends (send/meta)
         row = QtWidgets.QHBoxLayout()
-        row.addWidget(QtWidgets.QLabel("Backend:"))
-        self.backend_edit = QtWidgets.QLineEdit("http://localhost:8081")
-        row.addWidget(self.backend_edit)
+        row.addWidget(QtWidgets.QLabel("Send Backend:"))
+        self.send_backend_edit = QtWidgets.QLineEdit("http://localhost:8081")
+        row.addWidget(self.send_backend_edit)
+        row.addSpacing(12)
+        row.addWidget(QtWidgets.QLabel("Meta Backend:"))
+        self.meta_backend_edit = QtWidgets.QLineEdit("http://localhost:8082")
+        row.addWidget(self.meta_backend_edit)
         layout.addLayout(row)
 
         # Login section
@@ -116,13 +120,13 @@ class PyClientGUI(QtWidgets.QWidget):
         self.status.setText(text)
 
     def do_login(self):
-        base = self.backend_edit.text().strip()
-        if not base:
-            self.set_status("请先填写 backend URL")
+        meta_base = self.meta_backend_edit.text().strip()
+        if not meta_base:
+            self.set_status("请先填写 meta backend URL")
             return
         payload = {"username": self.username.text().strip(), "password": self.password.text()}
         try:
-            r = requests.post(f"{base}/login", json=payload, timeout=5)
+            r = requests.post(f"{meta_base}/login", json=payload, timeout=5)
             if r.status_code != 200:
                 self.set_status(f"登录失败: {r.status_code}")
                 try:
@@ -143,10 +147,10 @@ class PyClientGUI(QtWidgets.QWidget):
             self.set_status(f"登录错误: {e}")
 
     def _determine_ws_url(self):
-        base = self.backend_edit.text().strip()
+        send_base = self.send_backend_edit.text().strip()
         headers_req = {"Authorization": f"Bearer {self.token}"} if self.token else {}
         try:
-            r = requests.get(f"{base}/api/get_gateway_ws", headers=headers_req, timeout=5)
+            r = requests.get(f"{send_base}/api/get_gateway_ws", headers=headers_req, timeout=5)
             if r.status_code == 200:
                 obj = r.json()
                 data = obj.get("data", {})
@@ -160,7 +164,7 @@ class PyClientGUI(QtWidgets.QWidget):
         except Exception:
             pass
         # fallback
-        return to_ws_url(base)
+        return to_ws_url(send_base)
 
     def toggle_ws(self):
         if self.ws_app:
@@ -221,7 +225,7 @@ class PyClientGUI(QtWidgets.QWidget):
         if not self.token:
             self.set_status("请先登录")
             return
-        base = self.backend_edit.text().strip()
+        send_base = self.send_backend_edit.text().strip()
         room = int(self.room_id.value())
         text = self.msg_input.text().strip()
         if not text:
@@ -230,7 +234,7 @@ class PyClientGUI(QtWidgets.QWidget):
         payload = {"room_id": room, "content": {"type": "text", "text": text}}
         headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
         try:
-            r = requests.post(f"{base}/api/chat/send_message", json=payload, headers=headers, timeout=5)
+            r = requests.post(f"{send_base}/api/chat/send_message", json=payload, headers=headers, timeout=5)
             if r.status_code == 200:
                 self.set_status("发送成功")
             else:

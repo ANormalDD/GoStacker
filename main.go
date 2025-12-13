@@ -2,9 +2,9 @@ package main
 
 import (
 	"GoStacker/cmd/server"
-	"GoStacker/internal/chat/group"
-	chatsend "GoStacker/internal/chat/send"
-	"GoStacker/internal/gateway/mid"
+	"GoStacker/internal/meta/chat/group"
+	chatsend "GoStacker/internal/send/chat/send"
+	"GoStacker/internal/send/gateway/mid"
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/db/mysql"
 	"GoStacker/pkg/db/redis"
@@ -44,7 +44,7 @@ func main() {
 	utils.SetJWTConfig(config.Conf.JWTConfig)
 	monitor.InitMonitor()
 	if config.Conf.PushMod == "standalone" {
-		push.InitDispatcher(config.Conf.DispatcherConfig)
+		push.InitDispatcher(config.Conf.SendDispatcherConfig)
 		// start group flusher background worker (write-back cache) if enabled
 		if config.Conf != nil && config.Conf.GroupCacheConfig != nil && config.Conf.GroupCacheConfig.Enabled {
 			go func() {
@@ -69,14 +69,14 @@ func main() {
 			batch := 100
 			chatsend.StartMessageFlusher(interval, batch, stopCh)
 		}()
-	}else {
+	} else {
 		mid.RegisterPushOfflineMessagesFuc(push.PushOfflineMessages)
 		// start gateway dispatcher worker pool (configured via config.dispatcher)
 		gwWorkers := 0
 		gwQueue := 0
-		if config.Conf != nil && config.Conf.DispatcherConfig != nil {
-			gwWorkers = config.Conf.DispatcherConfig.GatewayWorkerCount
-			gwQueue = config.Conf.DispatcherConfig.GatewayQueueSize
+		if config.Conf != nil && config.Conf.SendDispatcherConfig != nil {
+			gwWorkers = config.Conf.SendDispatcherConfig.GatewayWorkerCount
+			gwQueue = config.Conf.SendDispatcherConfig.GatewayQueueSize
 		}
 		if gwWorkers <= 0 {
 			gwWorkers = runtime.NumCPU()
@@ -86,6 +86,6 @@ func main() {
 		}
 		push.StartGatewayDispatcher(gwWorkers, gwQueue)
 	}
-server.Start(config.Conf.PushMod)
+	server.Start(config.Conf.PushMod)
 	defer zap.L().Info("service exit")
 }

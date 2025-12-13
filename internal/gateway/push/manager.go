@@ -8,12 +8,16 @@ import (
 	"GoStacker/pkg/config"
 
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 )
 
 // 单一存储，value: *ConnectionHolder
 var connStore sync.Map // key: int64, value: *ConnectionHolder
 
 var ErrNoConn = errors.New("no connection for user")
+
+var connCount int = 0
+var connCountLock sync.Mutex
 
 type sendRequest struct {
 	msg  interface{}
@@ -40,6 +44,7 @@ func writerLoop(ch *ConnectionHolder) {
 			if mt, ok := req.msg.(int); ok && mt == websocket.PingMessage {
 				err = ch.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second))
 			} else {
+				zap.L().Debug("writerLoop sending message", zap.Any("message", req.msg))
 				ch.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 				err = ch.Conn.WriteJSON(req.msg)
 			}
@@ -88,12 +93,14 @@ func WriteJSONSafe(holder *ConnectionHolder, timeout time.Duration, message inte
 
 // EnqueueMessage 将消息尽力推入连接发送队列，不等待写入执行，仅等待入队成功或超时。
 func EnqueueMessage(userID int64, timeout time.Duration, message interface{}) error {
+	zap.L().Debug("EnqueueMessage", zap.Int64("userID", userID), zap.Any("message", message))
 	val, ok := connStore.Load(userID)
 	if !ok {
 		return ErrNoConn
 	}
 	holder := val.(*ConnectionHolder)
 	req := sendRequest{msg: message, resp: nil}
+	zap.L().Debug("EnqueueMessage prepared request", zap.Int64("userID", userID), zap.Any("request", req))
 	select {
 	case holder.sendCh <- req:
 		return nil
@@ -124,12 +131,15 @@ func RegisterConnection(userID int64, conn *websocket.Conn) {
 		if holder.Conn != nil {
 			holder.Conn.Close()
 		}
+		connCountLock.Lock()
+		connCount--
+		connCountLock.Unlock()
 		connStore.Delete(userID)
 	}
 	// determine send channel buffer size from config, fallback to 128
 	buf := 128
-	if config.Conf != nil && config.Conf.SendDispatcherConfig != nil && config.Conf.SendDispatcherConfig.SendChannelSize > 0 {
-		buf = config.Conf.SendDispatcherConfig.SendChannelSize
+	if config.Conf != nil && config.Conf.GatewayDispatcherConfig != nil && config.Conf.GatewayDispatcherConfig.SendChannelSize > 0 {
+		buf = config.Conf.GatewayDispatcherConfig.SendChannelSize
 	}
 	holder := &ConnectionHolder{
 		Conn:    conn,
@@ -137,6 +147,9 @@ func RegisterConnection(userID int64, conn *websocket.Conn) {
 		closeCh: make(chan struct{}),
 	}
 	connStore.Store(userID, holder)
+	connCountLock.Lock()
+	connCount++
+	connCountLock.Unlock()
 	go writerLoop(holder)
 }
 
@@ -156,6 +169,9 @@ func RemoveConnection(userID int64) error {
 		holder.Conn.Close()
 	}
 	connStore.Delete(userID)
+	connCountLock.Lock()
+	connCount--
+	connCountLock.Unlock()
 	return nil
 }
 
@@ -180,4 +196,10 @@ func GetConnectionAndLock(userID int64) (*websocket.Conn, *sync.Mutex, bool) {
 	}
 	holder := val.(*ConnectionHolder)
 	return holder.Conn, nil, true
+}
+
+func GetConnectionCount() int {
+	connCountLock.Lock()
+	defer connCountLock.Unlock()
+	return connCount
 }

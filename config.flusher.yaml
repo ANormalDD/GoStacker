@@ -1,0 +1,47 @@
+port: 0
+name: "gostacker-flusher"
+mode: "prod"
+version: "0.1"
+start_time: ""
+machine_id: 3
+push_mod: "gateway"
+
+log:
+  level: "info"
+  filename: "logs/flusher.log"
+  max_size: 50
+  max_backups: 7
+  max_age: 30
+
+mysql:
+  host: "127.0.0.1"
+  port: 3306
+  user: "root"
+  password: "root"
+  dbname: "GoStacker"
+  max_open_conns: 200
+  max_idle_conns: 50
+
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  db: 0
+  password: ""
+  pool_size: 50
+  batch_size: 128
+
+group_cache:
+  enabled: true
+  cache_ttl_seconds: 86400
+  dirty_retention_seconds: 604800
+  flush_interval_seconds: 5
+  batch_size: 100
+
+jwt:
+  secret: "secret"
+  expire_duration: 7200
+
+dispatcher:
+  send_channel_size: 1024
+  gateway_worker_count: 4
+  gateway_queue_size: 1024

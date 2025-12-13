@@ -16,21 +16,21 @@ def to_ws_url(http_url: str) -> str:
     netloc = p.netloc
     return f"{scheme}://{netloc}/api/ws"
 
-def register(base):
+def register(meta_base):
     username = input("username: ")
     password = input("password: ")
     nickname = input("nickname (optional): ")
     payload = {"username": username, "password": password, "nickname": nickname}
-    r = requests.post(f"{base}/register", json=payload)
+    r = requests.post(f"{meta_base}/register", json=payload)
     print(r.status_code, r.text)
     return r.status_code == 200
 
 
-def login(base):
+def login(meta_base):
     username = input("username: ")
     password = input("password: ")
     payload = {"username": username, "password": password}
-    r = requests.post(f"{base}/login", json=payload)
+    r = requests.post(f"{meta_base}/login", json=payload)
     print(r.status_code)
     try:
         obj = r.json()
@@ -44,7 +44,7 @@ def login(base):
     return None
 
 
-def create_room(base, token):
+def create_room(meta_base, token):
     if not token:
         print("请先登录！")
         return
@@ -59,14 +59,14 @@ def create_room(base, token):
                 pass
     payload = {"name": name, "is_group": True, "member_ids": member_ids}
     headers = {"Authorization": f"Bearer {token}"}
-    r = requests.post(f"{base}/api/chat/group/create", json=payload, headers=headers)
+    r = requests.post(f"{meta_base}/api/chat/group/create", json=payload, headers=headers)
     print(r.status_code)
     try:
         print(json.dumps(r.json(), indent=2, ensure_ascii=False))
     except Exception:
         print(r.text)
 
-def create_private_room(base, token):
+def create_private_room(meta_base, token):
     if not token:
         print("请先登录！")
         return
@@ -79,7 +79,7 @@ def create_private_room(base, token):
         pass
     payload = {"name": name, "is_group": False, "member_ids": member_ids}
     headers = {"Authorization": f"Bearer {token}"}
-    r = requests.post(f"{base}/api/chat/group/create", json=payload, headers=headers)
+    r = requests.post(f"{meta_base}/api/chat/group/create", json=payload, headers=headers)
     print(r.status_code)
     try:
         print(json.dumps(r.json(), indent=2, ensure_ascii=False))
@@ -87,14 +87,14 @@ def create_private_room(base, token):
         print(r.text)
         return
     
-def ws_connect(base, token):
+def ws_connect(send_base, token):
     if not token:
         print("请先登录！")
         return
     # Try to get gateway/push server address first
     headers_req = {"Authorization": f"Bearer {token}"}
     try:
-        r = requests.get(f"{base}/api/get_gateway_ws", headers=headers_req, timeout=5)
+        r = requests.get(f"{send_base}/api/get_gateway_ws", headers=headers_req, timeout=5)
         print("Gateway response status:", r.status_code)
         print("Gateway response text:", r.text)
         if r.status_code == 200:
@@ -110,13 +110,13 @@ def ws_connect(base, token):
                         gateway_base = f"http://{addr}"
                     ws_url = to_ws_url(gateway_base)
                 else:
-                    ws_url = to_ws_url(base)
+                    ws_url = to_ws_url(send_base)
             except Exception:
-                ws_url = to_ws_url(base)
+                ws_url = to_ws_url(send_base)
         else:
             return
     except Exception:
-        ws_url = to_ws_url(base)
+        ws_url = to_ws_url(send_base)
     
     headers = [f"Authorization: Bearer {token}"]
     # pretty print incoming JSON messages when possible
@@ -188,7 +188,7 @@ def ws_connect(base, token):
                 payload = {"room_id": room_id, "content": {"type": "text", "text": text}}
                 headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
                 try:
-                    r = requests.post(f"{base}/api/chat/send_message", json=payload, headers=headers, timeout=5)
+                    r = requests.post(f"{send_base}/api/chat/send_message", json=payload, headers=headers, timeout=5)
                     if r.status_code == 200:
                         print("> sent")
                     else:
@@ -214,7 +214,7 @@ def ws_connect(base, token):
     except KeyboardInterrupt:
         ws.close()
 
-def main_loop(base):
+def main_loop(send_base, meta_base):
     token = None
     while True:
         print("\n==== GoStacker 客户端 ====")
@@ -224,9 +224,9 @@ def main_loop(base):
             print("0. 退出")
             choice = input("请选择: ").strip()
             if choice == "1":
-                register(base)
+                register(meta_base)
             elif choice == "2":
-                t = login(base)
+                t = login(meta_base)
                 if t:
                     token = t
             elif choice == "0":
@@ -242,9 +242,9 @@ def main_loop(base):
             print("0. 退出")
             choice = input("请选择: ").strip()
             if choice == "1":
-                create_room(base, token)
+                create_room(meta_base, token)
             elif choice == "2":
-                ws_connect(base, token)
+                ws_connect(send_base, token)
             elif choice == "3":
                 token = None
                 print("已注销登录")
@@ -252,7 +252,7 @@ def main_loop(base):
                 print("再见！")
                 break
             elif choice == "4":
-                create_private_room(base, token)
+                create_private_room(meta_base, token)
             else:
                 print("无效选择")
 
@@ -260,9 +260,10 @@ def main_loop(base):
 def main():
     import argparse
     parser = argparse.ArgumentParser(description="GoStacker 交互式 CLI 客户端 (python)")
-    parser.add_argument("--backend", default="http://localhost:8081", help="backend base url")
+    parser.add_argument("--send-backend", dest="send_backend", default="http://localhost:8081", help="send backend base url (default: http://localhost:8081)")
+    parser.add_argument("--meta-backend", dest="meta_backend", default="http://localhost:8082", help="meta backend base url (default: http://localhost:8082)")
     args = parser.parse_args()
-    main_loop(args.backend)
+    main_loop(args.send_backend, args.meta_backend)
 
 
 if __name__ == "__main__":
