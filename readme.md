@@ -1,109 +1,99 @@
-# GoStacker
+**项目简介**
+ - **名称**: GoStacker — 一个轻量级、高性能的即时通讯 (IM) 后端服务。
+ - **职责**: 提供连接网关、路由与发送、离线消息持久化、群组缓存写回、服务注册/发现与推送分发等 IM 后端能力。
 
-GoStacker 是一个完整的即时通讯（IM）后端，提供消息发送、聊天室/群组管理、连接管理、消息持久化与实时推送等能力。项目既支持通过独立 Dispatcher 进行网关转发（Gateway 模式），也支持单进程直接投递（Standalone 模式）。仓库重点在推送引擎的设计与实现（低延迟、高并发与可靠投递），底层使用 Redis 作为队列/回退存储，MySQL 作为业务数据持久化，使用 goroutines + channels 实现并发调度，并通过 `gorilla/websocket` 提供实时通道。
+**仓库定位**
+ - **入口**: [main.go](main.go)（单进程整合启动）；另外提供子服务启动入口如 [cmd/gateway/main.go](cmd/gateway/main.go) 等用于拆分部署。
 
----
+**目录结构概览**
+ - **cmd/**: 各可独立运行的子服务入口，比如 `gateway`, `send`, `meta`, `flusher`。查看例如 [cmd/gateway/main.go](cmd/gateway/main.go) 。
+ - **internal/**: 核心业务实现（gateway、send、meta）。
+ - **pkg/**: 可复用底层模块（`bootstrap`, `config`, `db`, `logger`, `monitor`, `push` 等）。例如配置在 [pkg/config/config.go](pkg/config/config.go) 。
+ - **config*.yaml**: 多个示例/环境配置文件（`config.yaml`, `config.gateway.yaml` 等）。
 
-**主要特性**
+**整体架构与实现逻辑**
+ - **启动与初始化**: 启动时通过 `pkg/config` 加载 YAML 配置，初始化日志、MySQL、Redis、监控等（参见 [pkg/bootstrap/bootstrap.go](pkg/bootstrap/bootstrap.go) 和 [main.go](main.go)）。
+ - **模块划分**:
+	 - **Gateway 层**（`cmd/gateway` + `internal/gateway`）：负责接收客户端连接（HTTP/WS）、连接注册到中心/路由、与中心服务通信、将消息下发给内部发送组件。
+	 - **Send 层**（`cmd/send` + `internal/send`）：负责将消息投递到目标连接（网关）或持久化/离线写入 MySQL；包含发送回退、负载分发等机制。
+	 - **Meta 层**（`cmd/meta` + `internal/meta`）：用户、群组元数据管理，群组缓存、群组消息写回（flusher）逻辑。
+	 - **Flusher**（`cmd/flusher` + `internal/meta/chat/group/flusher.go`）：当启用 Group Cache 时，周期性将群组缓存写回 MySQL。
+	 - **Push 分发**（`pkg/push`, `internal/push`）：同一进程或独立进程两种 Push 模式（`push_mod` 配置：`standalone` 或 `gateway`），负责调度与下发离线通知或广播。
+ - **消息流（高层）**:
+	 1. 客户端 -> Gateway（WS/HTTP）
+	 2. Gateway 验证/鉴权 -> 将消息送到 Send Dispatcher 或通过 Center 转发
+	 3. Send 层根据目标路由信息选择网关实例或走离线写入（MySQL/Redis）
+	 4. 若启用缓存，Flusher 后台将 Redis 缓存批量写回 MySQL
 
-- 完整 IM 后端能力：支持点对点消息、群组/聊天室、消息构建与持久化（MySQL 可选）以及业务侧发送逻辑。
-- 推送引擎为核心重点：支持 Gateway 模式与 Standalone 模式，部署灵活，针对高并发优化的低延迟投递路径。
-- 每用户独立连接持有（ConnectionHolder），通过单独 writerLoop 序列化 websocket 写入，保证并发写安全与顺序性。
-- 离线/等待队列（Redis）：`offline:push:{user}` 与 `wait:push:{user}`，结合 `wait:push:set` 做有序重试与回灌，确保消息可靠性与至少一次投递语义。
-- Dispatcher 支持 worker pool（可配置）与任务拆分（按用户分批，默认 100 人一组）以实现削峰与负载均衡。
-- 可配置的流控与短超时策略（100-200ms）避免生产方阻塞，并把高峰流量降级到 Redis 持久化队列以保证系统可用性。
-- 使用 `zap` 做结构化日志记录，并具备 Graceful Shutdown 与后台重试监听器以提高稳定性。
+**核心配置说明**
+ - 配置入口: [pkg/config/config.go](pkg/config/config.go)，配置通过 `viper` 从 `config.yaml`（或 `--config` 指定文件）加载。
+ - 重要配置项:
+	 - **Port/Address/Name**: 服务监听地址/端口/实例名
+	 - **PushMod**: 推送模式（`standalone` 或 `gateway`）
+	 - **MySQLConfig/RedisConfig**: 数据库与缓存连接
+	 - **GroupCacheConfig**: 群组缓存开关与写回参数（`enabled`、`flush_interval_seconds`、`batch_size`）
+	 - **SendDispatcherConfig/GatewayDispatcherConfig**: 发送/网关分发线程池与队列大小
 
----
+**构建与运行**
+ - 依赖: 需要本地安装 `go`（建议 1.20+），以及可访问的 MySQL 与 Redis。依赖在 `go.mod` 中声明。
+ - 常用构建命令:
 
-**仓库结构（简要）**
+```bash
+# 在仓库根目录构建主可执行文件（整合版）
+go build -o bin/gostacker main.go
 
-- `main.go`：程序入口，初始化配置、日志、DB、Redis、Dispatcher 等。
-- `pkg/push/`：推送核心实现（dispatcher、gateway dispatch、standalone dispatch、连接管理、离线回灌等）。
-- `internal/gateway/`：网关相关组件与路由（网关向最终客户端转发逻辑）。
-- `pkg/db/redis`：Redis 封装（带重试封装的常用操作）。
-- `pkg/logger`：zap 日志初始化与中间件。
-- `internal/send`、`internal/chat`：消息构造及发送侧业务逻辑。
-
----
-
-**推送子系统说明（重点）**
-
-推送子系统位于 `pkg/push`，包含以下主要角色：
-
-- Dispatcher：接收上层应用的 PushMessage，将目标用户按策略拆分为子任务并入队（Gateway 模式会按所属 gateway 聚合用户并通过内部 WS 发送给对应 gateway）。
-- GatewayDispatcher：在 Gateway 模式下负责把消息路由到正确的 gateway；若 gateway 不在线则降级到用户离线队列。[gateway仓库](https://github.com/ANormalDD/DistrributePusher_Gateway)
-- Standalone Dispatcher：在单进程模式下直接尝试把消息入用户内存发送队列（非阻塞入队），失败时写入 Redis 的 wait/offline 队列。
-- ConnectionHolder + writerLoop：每个用户有一个 ConnectionHolder（包含 websocket.Conn、带缓冲的 sendCh），`writerLoop` 串行化写入以避免 websocket 并发写冲突。
-- 离线/等待队列：
-  - `offline:push:{user}`：长期离线消息，用户登录时由 `PushOfflineMessages` 批量拉取并回灌。
-  - `wait:push:{user}` + `wait:push:set`：短期等待队列，用于削峰与异步重试，后台 `ListeningWaitQueue` 会遍历 `wait:push:set` 并尝试把队列消息重新入队。
-
-关键设计要点：
-
-- 非阻塞入队与短超时：入队与写操作设置短超时（常见 100–200ms），避免生产者被阻塞，突发流量被降级到 Redis。 
-- 批量拆分：对于大规模广播消息，Dispatcher 将目标用户切分为小批次（默认 100 人一组）降低单次调度压力。
-- 重试与回退：写失败时有重试机制；关键场景把消息持久化到 Redis，保证“至少一次”投递语义。
-- 可观测性：对队列满、Redis 操作失败、网关不可用等关键事件进行日志记录以便排查和报警。
-
----
-
-**快速开始（Windows PowerShell）**
-
-1. 设置配置文件（示例 `config.yaml` 在项目根）：编辑数据库、Redis、Dispatcher 等配置项。
-
-2. 本地运行（开发模式）：
-
-```powershell
-# 在项目根目录执行
-go run main.go
+# 构建并运行单一子服务（示例：gateway）
+cd cmd/gateway
+go build -o ../../bin/gateway main.go
+./../../bin/gateway -config config.gateway.yaml
 ```
 
-或构建并运行：
+ - 直接运行（开发）:
 
-```powershell
-go build -o gostacker.exe
-.
-./gostacker.exe
+```bash
+go run main.go            # 使用根目录 config.yaml
+go run ./cmd/gateway -config config.gateway.yaml
 ```
 
-3. 运行前请确保：
+**运行示例（推荐开发步骤）**
+ - 准备 `config.gateway.yaml`、`config.send.yaml`、`config.meta.yaml`，修改 MySQL/Redis 地址。
+ - 启动网关: `go run ./cmd/gateway -config config.gateway.yaml`。
+ - 启动 send: `go run ./cmd/send -config config.send.yaml`。
+ - 启动 meta: `go run ./cmd/meta -config config.meta.yaml`（如需要）。
 
-- 已启动 Redis 实例并在 `config.yaml` 中配置正确地址。
-- 已配置 MySQL（若需要持久化聊天记录/其他数据）。
+**日志与监控**
+ - 日志: 使用 `pkg/logger`（zap）输出，配置在 `log` 段里。查看日志路径通过配置 `log.filename`。
+ - 监控: 程序在启动时调用 `monitor.InitMonitor()` 暴露基础指标，可接入 Prometheus。查看 [pkg/monitor/monitor.go](pkg/monitor/monitor.go)。
 
----
+**数据存储与缓存策略**
+ - MySQL: 存储历史消息、用户、群组等持久化数据（参见 `model/*.sql`）。
+ - Redis: 用作在线路由、群组缓存与中间队列，高并发场景下使用 Redis 批量/流水线操作以降低延迟。
 
-**配置亮点**
+**推送模式说明**
+ - `push_mod = standalone`:
+	 - 内置 Dispatcher 在当前进程处理推送，并启动 flusher/background flusher（如在 `main.go` 中所示）。
+ - 非 `standalone`:
+	 - 通过 `push.StartGatewayDispatcher` 启动针对 Gateway 的分发器，适用于分布式部署，推送逻辑与网关分离。
 
-- `DispatcherConfig`：可配置 `GatewayWorkerCount`、`GatewayQueueSize`、`SendChannelSize` 等，用于调优并发与内存使用。
-- `PushMod`：选择 `standalone` 或 `gateway` 模式。
-- `GroupCacheConfig`：分组消息写回（flusher）相关设置（间隔、批次大小）。
+**开发与调试建议**
+ - 本地测试可用 `config.gateway.yaml`、`config.send.yaml` 调试单模块。使用 `go run` 启动便于热重启与快速迭代。
+ - 使用 `zap` 日志级别调整（config.log.level）以便在开发时打印更多调试信息。
+ - 调试连接与路由问题时，可查看 Redis 中的在线路由键与 Center 注册信息（`internal/gateway/center_client`）。
 
-具体配置项请参阅项目中的 `config` 包与 `config.yaml` 示例。
+**常见问题与注意事项**
+ - 配置变更会被 `viper` 监听并自动加载，请注意生产环境配置一致性。
+ - 关闭服务时会依次关闭 MySQL/Redis 连接并 flush 日志。
+ - 当启用群组缓存并使用 flusher 时，请根据消息量调整 `batch_size` 与 `flush_interval_seconds`，避免一次性写入过大批次导致数据库压力峰值。
 
----
+**扩展与部署建议**
+ - 建议将 `gateway` 与 `send` 拆分部署，分别做水平扩展。Center 负责注册/发现，建议使用单独的注册中心服务或通过数据库/Redis 实现全局视图。
+ - 使用容器化（Docker）部署，每个子服务一个容器，配合 Kubernetes 做自动伸缩并使用 ConfigMap 管理 YAML 配置。
 
-**测试与调优建议**
-
-- 使用并发 WebSocket 客户端模拟器（自制或现成工具）验证 TPS、P95 延迟和连接吞吐量。
-- 观测 Redis 列表长度、`wait:push:set` 大小与 gateway dispatch queue 长度来判断系统削峰是否充分。
-- 调整 `SendChannelSize` 与 dispatcher worker 数量以取得最优延迟/吞吐平衡。
-
----
-
-**部署建议**
-
-- Gateway 模式：前端部署多个 Gateway 实例（负责外部 websocket 连接），并把推送服务部署为独立 Dispatcher 服务，Dispatcher 将消息发送到对应 Gateway。这样可以水平扩展外部连接与推送单元。
-- Standalone 模式：适合单机或容器化部署的简单场景，适合小规模或快速验证环境。
-
----
-
-**TODO LIST**
-- 使用监控（Prometheus + Grafana）采集关键指标：队列长度、入队延迟、写入失败率、Redis 操作错误率等。
-- 对于redis无法通信或者挂掉时的本地缓存
-- Docker部署
-- 推送消息全链路追踪
-- 支持文件上传，分布式存储
+**阅读源码的关键文件**
+ - `main.go` — 程序入口，展示了初始化顺序与推送模式分支。[main.go](main.go)
+ - `pkg/bootstrap/bootstrap.go` — 常用初始化封装与清理函数。[pkg/bootstrap/bootstrap.go](pkg/bootstrap/bootstrap.go)
+ - `pkg/config/config.go` — 所有可配置项结构与加载逻辑。[pkg/config/config.go](pkg/config/config.go)
+ - `internal/send` — 发送相关实现（分发、路由、持久化）。
+ - `internal/gateway` — 网关实现（中心注册、连接管理、HTTP/WS 路由）。
 
 
