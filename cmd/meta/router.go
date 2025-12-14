@@ -35,6 +35,11 @@ func NewRouter() *gin.Engine {
 		auth.POST("/chat/group/change_nickname", group.ChangeNicknameHandler)
 		auth.POST("/chat/group/change_member_role", group.ChangeMemberRoleHandler)
 		auth.POST("/chat/group/remove_member", group.RemoveMemberHandler)
+		auth.POST("/chat/group/join", group.JoinRoomHandler)
+		auth.GET("/chat/group/search", group.SearchRoomsHandler)
+		auth.POST("/chat/group/join/request", group.RequestJoinHandler)
+		auth.GET("/chat/group/join/requests", group.GetPendingJoinRequestsHandler)
+		auth.POST("/chat/group/join/respond", group.RespondJoinRequestHandler)
 	}
 
 	return g

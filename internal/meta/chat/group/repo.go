@@ -179,3 +179,112 @@ func QueryRoomMemberIDs(roomID int64) ([]int64, error) {
 	}
 	return memberIDs, nil
 }
+
+// SearchRoomsByName returns group rooms matching the fuzzy name query.
+func SearchRoomsByName(q string, limit int) ([]RoomInfo, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	like := "%" + q + "%"
+	query := "SELECT id, name, creator_id, created_at FROM chat_rooms WHERE is_group = 1 AND name LIKE ? LIMIT ?"
+	rows, err := mysql.DB.Query(query, like, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	res := make([]RoomInfo, 0)
+	for rows.Next() {
+		var r RoomInfo
+		if err := rows.Scan(&r.ID, &r.Name, &r.CreatorID, &r.CreatedAt); err != nil {
+			return nil, err
+		}
+		res = append(res, r)
+	}
+	return res, nil
+}
+
+func QueryRoomByID(roomID int64) (*RoomInfo, error) {
+	query := "SELECT id, name, creator_id, created_at FROM chat_rooms WHERE id = ? LIMIT 1"
+	var r RoomInfo
+	err := mysql.DB.QueryRow(query, roomID).Scan(&r.ID, &r.Name, &r.CreatorID, &r.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// Join request storage
+func ensureJoinRequestsTable() error {
+	query := `CREATE TABLE IF NOT EXISTS join_requests (
+		id BIGINT AUTO_INCREMENT PRIMARY KEY,
+		room_id BIGINT NOT NULL,
+		user_id BIGINT NOT NULL,
+		message TEXT DEFAULT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`
+	_, err := mysql.DB.Exec(query)
+	return err
+}
+
+func InsertJoinRequest(roomID int64, userID int64, message string) (int64, error) {
+	if err := ensureJoinRequestsTable(); err != nil {
+		return 0, err
+	}
+	q := "INSERT INTO join_requests (room_id, user_id, message, created_at) VALUES (?, ?, ?, ?)"
+	res, err := mysql.DB.Exec(q, roomID, userID, message, time.Now())
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
+}
+
+type JoinRequestRow struct {
+	ID        int64     `json:"id"`
+	RoomID    int64     `json:"room_id"`
+	UserID    int64     `json:"user_id"`
+	Message   string    `json:"message"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+func QueryPendingJoinRequestsByRoom(roomID int64) ([]JoinRequestRow, error) {
+	if err := ensureJoinRequestsTable(); err != nil {
+		return nil, err
+	}
+	q := "SELECT id, room_id, user_id, message, created_at FROM join_requests WHERE room_id = ? ORDER BY created_at ASC"
+	rows, err := mysql.DB.Query(q, roomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	res := make([]JoinRequestRow, 0)
+	for rows.Next() {
+		var r JoinRequestRow
+		if err := rows.Scan(&r.ID, &r.RoomID, &r.UserID, &r.Message, &r.CreatedAt); err != nil {
+			return nil, err
+		}
+		res = append(res, r)
+	}
+	return res, nil
+}
+
+func QueryJoinRequestByID(id int64) (*JoinRequestRow, error) {
+	if err := ensureJoinRequestsTable(); err != nil {
+		return nil, err
+	}
+	q := "SELECT id, room_id, user_id, message, created_at FROM join_requests WHERE id = ? LIMIT 1"
+	var r JoinRequestRow
+	err := mysql.DB.QueryRow(q, id).Scan(&r.ID, &r.RoomID, &r.UserID, &r.Message, &r.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+func DeleteJoinRequestByID(id int64) error {
+	if err := ensureJoinRequestsTable(); err != nil {
+		return err
+	}
+	q := "DELETE FROM join_requests WHERE id = ?"
+	_, err := mysql.DB.Exec(q, id)
+	return err
+}

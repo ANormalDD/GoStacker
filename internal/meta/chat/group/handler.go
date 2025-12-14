@@ -2,6 +2,7 @@ package group
 
 import (
 	"GoStacker/pkg/response"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,6 +37,20 @@ type ChangeMemberRoleRequest struct {
 type RemoveMemberRequest struct {
 	RoomID       int64 `json:"room_id" binding:"required"`
 	TargetUserID int64 `json:"target_user_id" binding:"required"`
+}
+
+type JoinRoomRequest struct {
+	RoomID int64 `json:"room_id" binding:"required"`
+}
+
+type RequestJoinRequest struct {
+	RoomID  int64  `json:"room_id" binding:"required"`
+	Message string `json:"message"`
+}
+
+type RespondJoinReq struct {
+	RequestID int64 `json:"request_id" binding:"required"`
+	Approve   bool  `json:"approve"`
 }
 
 func CreateRoomHandler(c *gin.Context) {
@@ -157,6 +172,105 @@ func RemoveMemberHandler(c *gin.Context) {
 		return
 	}
 	response.ReplySuccess(c, "Member removed successfully")
+}
+func JoinRoomHandler(c *gin.Context) {
+	var req JoinRoomRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ReplyBadRequest(c, "Invalid request")
+		return
+	}
+	userID, exists := c.Get("userID")
+	if !exists {
+		response.ReplyUnauthorized(c, "Unauthorized")
+		return
+	}
+	userID = userID.(int64)
+	err := JoinRoom(userID.(int64), req.RoomID)
+	if err != nil {
+		response.ReplyError500(c, err.Error())
+		return
+	}
+	response.ReplySuccess(c, "Joined room successfully")
+}
+
+func SearchRoomsHandler(c *gin.Context) {
+	q := c.Query("q")
+	limitStr := c.Query("limit")
+	limit := 20
+	if limitStr != "" {
+		if v, err := strconv.Atoi(limitStr); err == nil && v > 0 {
+			limit = v
+		}
+	}
+	rooms, err := SearchRooms(q, limit)
+	if err != nil {
+		response.ReplyError500(c, err.Error())
+		return
+	}
+	response.ReplySuccessWithData(c, "ok", gin.H{"rooms": rooms})
+}
+func RequestJoinHandler(c *gin.Context) {
+	var req RequestJoinRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ReplyBadRequest(c, "Invalid request")
+		return
+	}
+	userID, exists := c.Get("userID")
+	if !exists {
+		response.ReplyUnauthorized(c, "Unauthorized")
+		return
+	}
+	uid := userID.(int64)
+	id, err := RequestJoin(uid, req.RoomID, req.Message)
+	if err != nil {
+		response.ReplyError500(c, err.Error())
+		return
+	}
+	response.ReplySuccessWithData(c, "request created", gin.H{"request_id": id})
+}
+
+func GetPendingJoinRequestsHandler(c *gin.Context) {
+	roomIDStr := c.Query("room_id")
+	if roomIDStr == "" {
+		response.ReplyBadRequest(c, "room_id required")
+		return
+	}
+	roomID, err := strconv.ParseInt(roomIDStr, 10, 64)
+	if err != nil {
+		response.ReplyBadRequest(c, "invalid room_id")
+		return
+	}
+	userID, exists := c.Get("userID")
+	if !exists {
+		response.ReplyUnauthorized(c, "Unauthorized")
+		return
+	}
+	uid := userID.(int64)
+	rows, err := GetPendingJoinRequests(uid, roomID)
+	if err != nil {
+		response.ReplyError500(c, err.Error())
+		return
+	}
+	response.ReplySuccessWithData(c, "ok", gin.H{"requests": rows})
+}
+
+func RespondJoinRequestHandler(c *gin.Context) {
+	var req RespondJoinReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ReplyBadRequest(c, "Invalid request")
+		return
+	}
+	userID, exists := c.Get("userID")
+	if !exists {
+		response.ReplyUnauthorized(c, "Unauthorized")
+		return
+	}
+	uid := userID.(int64)
+	if err := RespondJoinRequest(uid, req.RequestID, req.Approve); err != nil {
+		response.ReplyError500(c, err.Error())
+		return
+	}
+	response.ReplySuccess(c, "ok")
 }
 func GetJoinedRoomsHandler(c *gin.Context) {
 	userID, exists := c.Get("userID")
