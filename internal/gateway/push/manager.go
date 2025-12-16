@@ -3,8 +3,11 @@ package push
 import (
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
+	"GoStacker/internal/gateway/centerclient"
+	"GoStacker/internal/gateway/push/types"
 	"GoStacker/pkg/config"
 
 	"github.com/gorilla/websocket"
@@ -18,6 +21,9 @@ var ErrNoConn = errors.New("no connection for user")
 
 var connCount int = 0
 var connCountLock sync.Mutex
+
+// TotalTaskCount records the total number of pending push tasks across all connections (len of all sendCh buffers)
+var TotalTaskCount int64
 
 type sendRequest struct {
 	msg  interface{}
@@ -38,6 +44,8 @@ func writerLoop(ch *ConnectionHolder) {
 			if !ok {
 				return
 			}
+			// one task consumed from channel
+			atomic.AddInt64(&TotalTaskCount, -1)
 			var err error
 			// If caller passed a websocket control message type (e.g. websocket.PingMessage)
 			// write it as a control frame instead of JSON.
@@ -76,6 +84,8 @@ func WriteJSONSafe(holder *ConnectionHolder, timeout time.Duration, message inte
 	// enqueue with timeout
 	select {
 	case holder.sendCh <- req:
+		// increment global task count for this enqueue
+		atomic.AddInt64(&TotalTaskCount, 1)
 		// wait for write result or timeout
 		select {
 		case err := <-req.resp:
@@ -103,6 +113,7 @@ func EnqueueMessage(userID int64, timeout time.Duration, message interface{}) er
 	zap.L().Debug("EnqueueMessage prepared request", zap.Int64("userID", userID), zap.Any("request", req))
 	select {
 	case holder.sendCh <- req:
+		atomic.AddInt64(&TotalTaskCount, 1)
 		return nil
 	case <-time.After(timeout):
 		return errors.New("enqueue timeout")
@@ -119,33 +130,60 @@ func GetConnectionHolder(userID int64) (*ConnectionHolder, bool) {
 }
 
 func RegisterConnection(userID int64, conn *websocket.Conn) {
-	// 如果已有旧连接，先关闭并删除
+	// determine send channel buffer size from config, fallback to 128
+	buf := 128
+	if config.Conf != nil && config.Conf.GatewayDispatcherConfig != nil && config.Conf.GatewayDispatcherConfig.SendChannelSize > 0 {
+		buf = config.Conf.GatewayDispatcherConfig.SendChannelSize
+	}
+
+	// If there's an existing connection, stop its writer, drain buffered messages, and migrate them to the new sendCh.
+	var drained []sendRequest
 	if val, ok := connStore.Load(userID); ok {
-		holder := val.(*ConnectionHolder)
-		// signal close
+		old := val.(*ConnectionHolder)
+		// signal old writer to stop
 		func() {
 			defer func() { _ = recover() }()
-			close(holder.closeCh)
-			close(holder.sendCh)
+			close(old.closeCh)
 		}()
-		if holder.Conn != nil {
-			holder.Conn.Close()
+		// drain any buffered items (non-blocking) into slice
+		for {
+			select {
+			case req, ok := <-old.sendCh:
+				if !ok {
+					goto drainedDone
+				}
+				drained = append(drained, req)
+			default:
+				goto drainedDone
+			}
+		}
+	drainedDone:
+		// close old sendCh safely
+		func() {
+			defer func() { _ = recover() }()
+			close(old.sendCh)
+		}()
+		if old.Conn != nil {
+			old.Conn.Close()
 		}
 		connCountLock.Lock()
 		connCount--
 		connCountLock.Unlock()
 		connStore.Delete(userID)
 	}
-	// determine send channel buffer size from config, fallback to 128
-	buf := 128
-	if config.Conf != nil && config.Conf.GatewayDispatcherConfig != nil && config.Conf.GatewayDispatcherConfig.SendChannelSize > 0 {
-		buf = config.Conf.GatewayDispatcherConfig.SendChannelSize
-	}
+
+	// create new holder with capacity to hold drained items plus configured buffer
+	newBuf := buf + len(drained)
 	holder := &ConnectionHolder{
 		Conn:    conn,
-		sendCh:  make(chan sendRequest, buf),
+		sendCh:  make(chan sendRequest, newBuf),
 		closeCh: make(chan struct{}),
 	}
+	// migrate drained items into new sendCh without changing TotalTaskCount (they were already counted)
+	for _, req := range drained {
+		holder.sendCh <- req
+	}
+
 	connStore.Store(userID, holder)
 	connCountLock.Lock()
 	connCount++
@@ -159,12 +197,51 @@ func RemoveConnection(userID int64) error {
 		return ErrNoConn
 	}
 	holder := val.(*ConnectionHolder)
-	// try close channels safely
+	// drain pending items and send them back to center
+	var drained []sendRequest
 	func() {
 		defer func() { _ = recover() }()
+		// signal writer to stop
 		close(holder.closeCh)
-		close(holder.sendCh)
+		// non-blocking drain
+		for {
+			select {
+			case req, ok := <-holder.sendCh:
+				if !ok {
+					goto drainedDone
+				}
+				drained = append(drained, req)
+			default:
+				goto drainedDone
+			}
+		}
+	drainedDone:
+		// close the sendCh
+		func() {
+			defer func() { _ = recover() }()
+			close(holder.sendCh)
+		}()
 	}()
+
+	// decrement global task count by number drained
+	if len(drained) > 0 {
+		atomic.AddInt64(&TotalTaskCount, -int64(len(drained)))
+	}
+
+	// send drained tasks back to center server
+	for _, req := range drained {
+		// attempt to convert message to types.ClientMessage
+		if msg, ok := req.msg.(types.ClientMessage); ok {
+			if config.Conf != nil {
+				if err := centerclient.SendPushBackRequest(config.Conf.CenterConfig, msg, userID); err != nil {
+					zap.L().Error("SendPushBackRequest failed during RemoveConnection", zap.Int64("userID", userID), zap.Error(err))
+				}
+			}
+		} else {
+			zap.L().Warn("skipping pushback for non-client message", zap.Any("msg", req.msg))
+		}
+	}
+
 	if holder.Conn != nil {
 		holder.Conn.Close()
 	}
