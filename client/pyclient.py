@@ -214,6 +214,92 @@ def ws_connect(send_base, token):
     except KeyboardInterrupt:
         ws.close()
 
+
+def search_rooms(meta_base, token):
+    q = input("search q: ").strip()
+    limit = input("limit (default 20): ").strip() or "20"
+    try:
+        l = int(limit)
+    except Exception:
+        l = 20
+    params = {"q": q, "limit": l}
+    headers = {"Authorization": f"Bearer {token}"}
+    r = requests.get(f"{meta_base}/api/chat/group/search", params=params, headers=headers)
+    print(r.status_code)
+    try:
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+    except Exception:
+        print(r.text)
+
+
+def join_group(meta_base, token):
+    room_id = input("room id to join: ").strip()
+    try:
+        rid = int(room_id)
+    except Exception:
+        print("invalid room id")
+        return
+    payload = {"room_id": rid}
+    headers = {"Authorization": f"Bearer {token}"}
+    r = requests.post(f"{meta_base}/api/chat/group/join", json=payload, headers=headers)
+    print(r.status_code)
+    try:
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+    except Exception:
+        print(r.text)
+
+
+def request_join(meta_base, token):
+    room_id = input("room id to request join: ").strip()
+    msg = input("optional message: ").strip()
+    try:
+        rid = int(room_id)
+    except Exception:
+        print("invalid room id")
+        return
+    payload = {"room_id": rid, "message": msg}
+    headers = {"Authorization": f"Bearer {token}"}
+    r = requests.post(f"{meta_base}/api/chat/group/join/request", json=payload, headers=headers)
+    print(r.status_code)
+    try:
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+    except Exception:
+        print(r.text)
+
+
+def list_join_requests(meta_base, token):
+    room_id = input("room id to list requests: ").strip()
+    try:
+        rid = int(room_id)
+    except Exception:
+        print("invalid room id")
+        return
+    headers = {"Authorization": f"Bearer {token}"}
+    r = requests.get(f"{meta_base}/api/chat/group/join/requests", params={"room_id": rid}, headers=headers)
+    print(r.status_code)
+    try:
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+    except Exception:
+        print(r.text)
+
+
+def respond_join_request(meta_base, token):
+    reqid = input("request id to respond: ").strip()
+    approve = input("approve? (y/n): ").strip().lower() == 'y'
+    try:
+        rid = int(reqid)
+    except Exception:
+        print("invalid request id")
+        return
+    payload = {"request_id": rid, "approve": approve}
+    headers = {"Authorization": f"Bearer {token}"}
+    r = requests.post(f"{meta_base}/api/chat/group/join/respond", json=payload, headers=headers)
+    print(r.status_code)
+    try:
+        print(json.dumps(r.json(), indent=2, ensure_ascii=False))
+    except Exception:
+        print(r.text)
+
 def main_loop(send_base, meta_base):
     token = None
     while True:
@@ -235,10 +321,15 @@ def main_loop(send_base, meta_base):
             else:
                 print("无效选择")
         else:
-            print("1. 创建聊天室")
-            print("2. 连接 WebSocket (聊天/收消息)")
-            print("3. 注销登录")
-            print("4. 创建私聊")
+                print("1. 创建聊天室")
+                print("2. 连接 WebSocket (聊天/收消息)")
+                print("3. 注销登录")
+                print("4. 创建私聊")
+                print("5. 搜索群")
+                print("6. 主动加入群")
+                print("7. 提交入群申请")
+                print("8. 列出入群申请(管理员/群主)")
+                print("9. 审核入群申请(管理员/群主)")
             print("0. 退出")
             choice = input("请选择: ").strip()
             if choice == "1":
@@ -248,6 +339,16 @@ def main_loop(send_base, meta_base):
             elif choice == "3":
                 token = None
                 print("已注销登录")
+                elif choice == "5":
+                    search_rooms(meta_base, token)
+                elif choice == "6":
+                    join_group(meta_base, token)
+                elif choice == "7":
+                    request_join(meta_base, token)
+                elif choice == "8":
+                    list_join_requests(meta_base, token)
+                elif choice == "9":
+                    respond_join_request(meta_base, token)
             elif choice == "0":
                 print("再见！")
                 break
