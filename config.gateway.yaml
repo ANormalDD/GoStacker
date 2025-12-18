@@ -41,3 +41,10 @@ dispatcher:
   worker_count: 4
   task_queue_size: 1024
   max_connections: 10000
+  send_channel_size: 256
+  stream_name: "test_gateway_stream"
+  group_name: "test_gateway_group"
+  consumer_name: "test_gateway_consumer"
+  interval: 5
+  threshold_pending: 1000
+

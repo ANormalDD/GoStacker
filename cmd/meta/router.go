@@ -40,6 +40,7 @@ func NewRouter() *gin.Engine {
 		auth.POST("/chat/group/join/request", group.RequestJoinHandler)
 		auth.GET("/chat/group/join/requests", group.GetPendingJoinRequestsHandler)
 		auth.POST("/chat/group/join/respond", group.RespondJoinRequestHandler)
+		auth.GET("/joined_rooms", group.GetJoinedRoomsHandler)
 	}
 
 	return g

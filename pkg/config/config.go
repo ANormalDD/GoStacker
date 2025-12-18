@@ -82,6 +82,11 @@ type GatewayDispatcherConfig struct {
 	TaskQueueSize   int `mapstructure:"task_queue_size"`
 	MaxConnections  int `mapstructure:"max_connections"`
 	SendChannelSize int `mapstructure:"send_channel_size"`
+	StreamName      string `mapstructure:"stream_name"`
+	GroupName       string `mapstructure:"group_name"`
+	ConsumerName    string `mapstructure:"consumer_name"`
+	Interval        int    `mapstructure:"interval"`
+	ThresholdPending int64 `mapstructure:"threshold_pending"`
 }
 
 type CenterConfig struct {

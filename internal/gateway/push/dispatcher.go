@@ -2,9 +2,9 @@ package push
 
 import (
 	"GoStacker/internal/gateway/centerclient"
+	"GoStacker/internal/gateway/push/types"
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/monitor"
-	"GoStacker/internal/gateway/push/types"
 	"context"
 	"encoding/json"
 	"os"
@@ -29,6 +29,7 @@ func Dispatch(msg types.PushMessage) error {
 		SenderID: msg.SenderID,
 		Payload:  msg.Payload,
 	}
+	defaultPendingManager.Init(msg.ID, int32(len(msg.TargetIDs)))
 	zap.L().Debug("Dispatching push message", zap.Any("message", clientMsg))
 	marshaledMsg, err := json.Marshal(clientMsg)
 	if err != nil {
@@ -49,20 +50,20 @@ func Dispatch(msg types.PushMessage) error {
 					SenderID: msg.SenderID,
 					Payload:  msg.Payload,
 				}
+				defaultPendingManager.Done(msg.ID)
 				err2 := centerclient.SendPushBackRequest(config.Conf.CenterConfig, forwardReq, uid)
 				if err2 != nil {
 					zap.L().Error("SendPushBackRequest failed", zap.Int64("userID", uid), zap.Error(err2))
 				}
 				continue
 			}
-			// fallback: 推送到redis等待队列,并记录
 			InsertWaitQueue(uid, string(marshaledMsg))
 		}
 	}
 	return nil
 }
 
-func waitForShutdown() {
+func waitForDispatchShutdown() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -81,6 +82,6 @@ func InitDispatcher(Conf *config.GatewayDispatcherConfig) {
 	pushWSMonitor = monitor.NewMonitor("push_ws", 1000, 10000, 60000)
 	pushWSMonitor.Run()
 
-	go waitForShutdown()
+	go waitForDispatchShutdown()
 	go ListeningWaitQueue()
 }

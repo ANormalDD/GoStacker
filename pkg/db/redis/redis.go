@@ -111,6 +111,57 @@ func SIsEmptyWithRetry(retry int, key string) (bool, error) {
 	}
 	return false, err
 }
+func XAddWithRetry(retry int, stream string, values map[string]interface{}) error {
+	var err error
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		_, err = Rdb.XAdd(ctx, &redis.XAddArgs{
+			Stream: stream,
+			Values: values,
+		}).Result()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
+}
+func XGroupCreateMkStreamWithRetry(retry int, stream string, group string, start string) error {
+	var err error
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		err = Rdb.XGroupCreateMkStream(ctx, stream, group, start).Err()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
+}
+
+func XReadGroupBlocking(stream string, group string, consumer string, count int64, block time.Duration, lastID string) ([]redis.XStream, error) {
+	ctx := context.Background()
+	return Rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
+		Group:    group,
+		Consumer: consumer,
+		Streams:  []string{stream, lastID},
+		Count:    count,
+		Block:    block,
+	}).Result()
+}
+
+func XAckWithRetry(retry int, stream string, group string, ids ...string) error {
+	var err error
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		err = Rdb.XAck(ctx, stream, group, ids...).Err()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
+}
 
 func Close() {
 	_ = Rdb.Close()

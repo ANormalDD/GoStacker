@@ -17,7 +17,6 @@ var waitSet sync.Map
 
 // use when redis is down <int,chan<string>>
 var waitMsg sync.Map
-var offlineMsg sync.Map
 
 func InsertWaitSet(userID int64) {
 	_, ok := waitSet.Load(userID)
@@ -25,7 +24,7 @@ func InsertWaitSet(userID int64) {
 		return
 	}
 	waitSet.Store(userID, struct{}{})
-}
+}     
 
 func RemoveWaitSet(userID int64) {
 	_, ok := waitSet.Load(userID)

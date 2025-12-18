@@ -51,6 +51,8 @@ func main() {
 			zap.L().Warn("register to center failed", zap.Error(err))
 		} else {
 			zap.L().Info("registered to center successfully")
+			push.InitStreamAndGroup(config.Conf.GatewayDispatcherConfig.StreamName, config.Conf.GatewayDispatcherConfig.GroupName, config.Conf.GatewayDispatcherConfig.ConsumerName, time.Duration(config.Conf.GatewayDispatcherConfig.Interval)*time.Second, config.Conf.GatewayDispatcherConfig.ThresholdPending)
+			zap.L().Info("initialized stream and group for push dispatcher")
 		}
 	}()
 

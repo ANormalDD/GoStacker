@@ -91,7 +91,7 @@ func PushSingleViaGateway(userID int64, msg ClientMessage) error {
 		Payload:   msg.Payload,
 	}
 	// send to gateway via internal ws manager; use 10s write timeout
-	if err := gw.SendToGateway(gid, 10*time.Second, gwMsg); err != nil {
+	if err := gw.SendToGatewayWithRedisStream(gid, gwMsg); err != nil {
 		return err
 	}
 	return nil
@@ -134,9 +134,9 @@ func gatewayWorker() {
 			}
 
 			// send to gateway via internal ws manager; use 10s write timeout
-			if err := gw.SendToGateway(gid, 10*time.Second, gwMsg); err != nil {
+			if err := gw.SendToGatewayWithRedisStream(gid, gwMsg); err != nil {
 				if err == gw.ErrNoConn {
-					zap.L().Info("gateway dispatch: gateway not connected, push to offline queues", zap.String("gateway", gid))
+					zap.L().Info("redis down, push to offline queues", zap.String("gateway", gid))
 					// push all messages for these user ids to offline redis
 					for _, uid := range uids {
 						clientMsg := ClientMessage{

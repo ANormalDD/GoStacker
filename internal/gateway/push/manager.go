@@ -14,7 +14,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// 单一存储，value: *ConnectionHolder
 var connStore sync.Map // key: int64, value: *ConnectionHolder
 
 var ErrNoConn = errors.New("no connection for user")
@@ -22,8 +21,7 @@ var ErrNoConn = errors.New("no connection for user")
 var connCount int = 0
 var connCountLock sync.Mutex
 
-// TotalTaskCount records the total number of pending push tasks across all connections (len of all sendCh buffers)
-var TotalTaskCount int64
+var totalPending int64
 
 type sendRequest struct {
 	msg  interface{}
@@ -36,6 +34,15 @@ type ConnectionHolder struct {
 	closeCh chan struct{}
 }
 
+func incPending(count int64) {
+	atomic.AddInt64(&totalPending, count)
+}
+
+func decPending(count int64) {
+	atomic.AddInt64(&totalPending, -count)
+	PullTask()
+}
+
 // writerLoop 串行化对 websocket 的写入并在完成后将结果返回给请求方
 func writerLoop(ch *ConnectionHolder) {
 	for {
@@ -45,13 +52,17 @@ func writerLoop(ch *ConnectionHolder) {
 				return
 			}
 			// one task consumed from channel
-			atomic.AddInt64(&TotalTaskCount, -1)
+			decPending(1)
 			var err error
 			// If caller passed a websocket control message type (e.g. websocket.PingMessage)
 			// write it as a control frame instead of JSON.
 			if mt, ok := req.msg.(int); ok && mt == websocket.PingMessage {
 				err = ch.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second))
 			} else {
+				msgraw, ok := req.msg.(types.ClientMessage)
+				if ok {
+					defaultPendingManager.Done(msgraw.ID)
+				}
 				zap.L().Debug("writerLoop sending message", zap.Any("message", req.msg))
 				ch.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 				err = ch.Conn.WriteJSON(req.msg)
@@ -85,7 +96,7 @@ func WriteJSONSafe(holder *ConnectionHolder, timeout time.Duration, message inte
 	select {
 	case holder.sendCh <- req:
 		// increment global task count for this enqueue
-		atomic.AddInt64(&TotalTaskCount, 1)
+		incPending(1)
 		// wait for write result or timeout
 		select {
 		case err := <-req.resp:
@@ -113,7 +124,7 @@ func EnqueueMessage(userID int64, timeout time.Duration, message interface{}) er
 	zap.L().Debug("EnqueueMessage prepared request", zap.Int64("userID", userID), zap.Any("request", req))
 	select {
 	case holder.sendCh <- req:
-		atomic.AddInt64(&TotalTaskCount, 1)
+		incPending(1)
 		return nil
 	case <-time.After(timeout):
 		return errors.New("enqueue timeout")
@@ -225,7 +236,7 @@ func RemoveConnection(userID int64) error {
 
 	// decrement global task count by number drained
 	if len(drained) > 0 {
-		atomic.AddInt64(&TotalTaskCount, -int64(len(drained)))
+		decPending(int64(len(drained)))
 	}
 
 	// send drained tasks back to center server
@@ -233,6 +244,7 @@ func RemoveConnection(userID int64) error {
 		// attempt to convert message to types.ClientMessage
 		if msg, ok := req.msg.(types.ClientMessage); ok {
 			if config.Conf != nil {
+				defaultPendingManager.Done(msg.ID)
 				if err := centerclient.SendPushBackRequest(config.Conf.CenterConfig, msg, userID); err != nil {
 					zap.L().Error("SendPushBackRequest failed during RemoveConnection", zap.Int64("userID", userID), zap.Error(err))
 				}

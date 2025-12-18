@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"GoStacker/pkg/config"
+	"GoStacker/pkg/db/redis"
+	"encoding/json"
+	"fmt"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -104,6 +107,25 @@ func SendToGateway(gatewayID string, timeout time.Duration, message interface{})
 	case <-time.After(timeout):
 		return errors.New("send timeout")
 	}
+}
+
+func SendToGatewayWithRedisStream(gatewayID string, message interface{}) error {
+	zap.L().Debug("Sending message to gateway via Redis Stream", zap.String("gateway_id", gatewayID), zap.Any("message", message))
+	data, err := json.Marshal(message)
+	if err != nil {
+		zap.L().Error("Failed to marshal message for Redis Stream", zap.Error(err))
+		return err
+	}
+	err = redis.XAddWithRetry(2, fmt.Sprintf("%s_stream", gatewayID), map[string]interface{}{
+		"data": data,
+	})
+	zap.L().Debug("redis stream enqueue", zap.String("stream", fmt.Sprintf("%s_stream", gatewayID)))
+	if err != nil {
+		zap.L().Error("Failed to add message to Redis Stream", zap.Error(err))
+		return err
+	}
+	return nil
+
 }
 
 func RemoveConnection(gatewayID string) error {
