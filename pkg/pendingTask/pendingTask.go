@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const shardCount = 64 // 可根据并发量调整
+const shardCount = 64
 
 type shard struct {
 	mu sync.Mutex
@@ -54,9 +54,25 @@ func (pm *PendingManager) Init(msgID int64, count int32) {
 func (pm *PendingManager) Done(msgID int64) {
 	s := pm.getShard(msgID)
 
-	ptr := s.m[msgID]
-
+	ptr, ok := s.m[msgID]
+	if !ok {
+		return
+	}
 	newVal := atomic.AddInt32(ptr, -1)
+	if newVal <= 0 {
+		s.mu.Lock()
+		delete(s.m, msgID)
+		s.mu.Unlock()
+		pm.doneFunc(msgID)
+	}
+}
+func (pm *PendingManager) DoneN(msgID int64, n int32) {
+	s := pm.getShard(msgID)
+	ptr, ok := s.m[msgID]
+	if !ok {
+		return
+	}
+	newVal := atomic.AddInt32(ptr, -n)
 	if newVal <= 0 {
 		s.mu.Lock()
 		delete(s.m, msgID)
