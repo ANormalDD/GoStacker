@@ -3,6 +3,7 @@ package push
 import (
 	"GoStacker/internal/gateway/centerclient"
 	"GoStacker/internal/gateway/push/types"
+	"GoStacker/pkg/pendingTask"
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/monitor"
 	"context"
@@ -29,7 +30,7 @@ func Dispatch(msg types.PushMessage) error {
 		SenderID: msg.SenderID,
 		Payload:  msg.Payload,
 	}
-	defaultPendingManager.Init(msg.ID, int32(len(msg.TargetIDs)))
+	pendingTask.DefaultPendingManager.Init(msg.ID, int32(len(msg.TargetIDs)))
 	zap.L().Debug("Dispatching push message", zap.Any("message", clientMsg))
 	marshaledMsg, err := json.Marshal(clientMsg)
 	if err != nil {
@@ -50,7 +51,7 @@ func Dispatch(msg types.PushMessage) error {
 					SenderID: msg.SenderID,
 					Payload:  msg.Payload,
 				}
-				defaultPendingManager.Done(msg.ID)
+				pendingTask.DefaultPendingManager.Done(msg.ID)
 				err2 := centerclient.SendPushBackRequest(config.Conf.CenterConfig, forwardReq, uid)
 				if err2 != nil {
 					zap.L().Error("SendPushBackRequest failed", zap.Int64("userID", uid), zap.Error(err2))

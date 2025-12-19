@@ -5,6 +5,7 @@ package push
 import (
 	"GoStacker/internal/gateway/push/types"
 	Redis "GoStacker/pkg/db/redis"
+	"GoStacker/pkg/pendingTask"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -146,6 +147,9 @@ func waitForPullShutdown() {
 }
 
 func InitStreamAndGroup(StreamName string, GroupName string, ConsumerName string, interval time.Duration, thresholdPending int64) {
+	pendingTask.DefaultPendingManager.SetDoneFunc(func(msgID int64) {
+		Redis.InsertAckCache(fmt.Sprintf("%d", msgID))
+	})
 	pullCtx, pullCancel = context.WithCancel(context.Background())
 	streamName = StreamName
 	groupName = GroupName

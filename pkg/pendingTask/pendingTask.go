@@ -1,10 +1,10 @@
-package push
+package pendingTask
 
 import (
-	"GoStacker/pkg/db/redis"
-	"fmt"
 	"sync"
 	"sync/atomic"
+
+	"go.uber.org/zap"
 )
 
 const shardCount = 64 // 可根据并发量调整
@@ -15,17 +15,26 @@ type shard struct {
 }
 
 type PendingManager struct {
-	shards [shardCount]shard
+	shards   [shardCount]shard
+	doneFunc DoneFunc
 }
+type DoneFunc func(msgID int64)
 
-var defaultPendingManager = NewPendingManager()
+var DefaultPendingManager = NewPendingManager()
 
 func NewPendingManager() *PendingManager {
 	pm := &PendingManager{}
 	for i := 0; i < shardCount; i++ {
 		pm.shards[i].m = make(map[int64]*int32)
 	}
+	pm.doneFunc = func(msgID int64) {
+		zap.L().Warn("PendingManager doneFunc not set, msgID:", zap.Int64("msgID", msgID))
+	}
 	return pm
+}
+
+func (pm *PendingManager) SetDoneFunc(f DoneFunc) {
+	pm.doneFunc = f
 }
 
 func (pm *PendingManager) getShard(msgID int64) *shard {
@@ -52,7 +61,7 @@ func (pm *PendingManager) Done(msgID int64) {
 		s.mu.Lock()
 		delete(s.m, msgID)
 		s.mu.Unlock()
-		redis.InsertAckCache(fmt.Sprintf("%d", msgID))
+		pm.doneFunc(msgID)
 	}
 }
 
