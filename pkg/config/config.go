@@ -27,6 +27,7 @@ type AppConfig struct {
 	*SendDispatcherConfig    `mapstructure:"send_dispatcher"`
 	*GatewayDispatcherConfig `mapstructure:"dispatcher"`
 	*CenterConfig            `mapstructure:"center"`
+	*RegistryConfig          `mapstructure:"registry"`
 }
 
 type LogConfig struct {
@@ -78,19 +79,27 @@ type SendDispatcherConfig struct {
 }
 
 type GatewayDispatcherConfig struct {
-	WorkerCount     int `mapstructure:"worker_count"`
-	TaskQueueSize   int `mapstructure:"task_queue_size"`
-	MaxConnections  int `mapstructure:"max_connections"`
-	SendChannelSize int `mapstructure:"send_channel_size"`
-	StreamName      string `mapstructure:"stream_name"`
-	GroupName       string `mapstructure:"group_name"`
-	ConsumerName    string `mapstructure:"consumer_name"`
-	Interval        int    `mapstructure:"interval"`
-	ThresholdPending int64 `mapstructure:"threshold_pending"`
+	WorkerCount      int    `mapstructure:"worker_count"`
+	TaskQueueSize    int    `mapstructure:"task_queue_size"`
+	MaxConnections   int    `mapstructure:"max_connections"`
+	SendChannelSize  int    `mapstructure:"send_channel_size"`
+	StreamName       string `mapstructure:"stream_name"`
+	GroupName        string `mapstructure:"group_name"`
+	ConsumerName     string `mapstructure:"consumer_name"`
+	Interval         int    `mapstructure:"interval"`
+	ThresholdPending int64  `mapstructure:"threshold_pending"`
 }
 
 type CenterConfig struct {
 	Address string `mapstructure:"address"`
+}
+
+type RegistryConfig struct {
+	URL                     string `mapstructure:"url"`
+	GatewayHeartbeatTimeout int    `mapstructure:"gateway_heartbeat_timeout"`
+	SendHeartbeatTimeout    int    `mapstructure:"send_heartbeat_timeout"`
+	UserRouteTTL            int    `mapstructure:"user_route_ttl"`
+	CleanupInterval         int    `mapstructure:"cleanup_interval"`
 }
 
 func Init() (err error) {

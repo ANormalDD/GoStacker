@@ -20,9 +20,11 @@ from PySide6 import QtCore, QtWidgets
 
 
 def to_ws_url(http_url: str) -> str:
+    print(f"Converting HTTP URL to WS URL: {http_url}")
     p = urlparse(http_url)
     scheme = "ws" if p.scheme == "http" else "wss"
     netloc = p.netloc
+    print(f"Parsed URL - scheme: {scheme}, netloc: {netloc}")
     return f"{scheme}://{netloc}/api/ws"
 
 
@@ -165,14 +167,25 @@ class PyClientGUI(QtWidgets.QWidget):
 
     def _determine_ws_url(self):
         send_base = self.send_backend_edit.text().strip()
+        # Get registry URL (assume same host as send, port 8084)
+        p = urlparse(send_base)
+        registry_url = f"{p.scheme}://{p.hostname}:8083"
+        
         headers_req = {"Authorization": f"Bearer {self.token}"} if self.token else {}
         try:
-            r = requests.get(f"{send_base}/api/get_gateway_ws", headers=headers_req, timeout=5)
+            r = requests.get(f"{registry_url}/registry/gateway/available", headers=headers_req, timeout=5)
+            #show result
+            self.append_message(f"Registry response: {r.text}")
             if r.status_code == 200:
                 obj = r.json()
                 data = obj.get("data", {})
                 addr = data.get("address")
-                if addr:
+                port = data.get("port")
+                print(f"Discovered gateway at {addr}:{port}")
+                if addr and port:
+                    gateway_base = f"http://{addr}:{port}"
+                    print(f"Using gateway base URL: {gateway_base}")
+                elif addr:
                     if addr.startswith("http://") or addr.startswith("https://"):
                         gateway_base = addr
                     else:
@@ -181,7 +194,7 @@ class PyClientGUI(QtWidgets.QWidget):
         except Exception:
             pass
         # fallback
-        return to_ws_url(send_base)
+        return to_ws_url(gateway_base)
 
     def toggle_ws(self):
         if self.ws_app:
@@ -199,6 +212,7 @@ class PyClientGUI(QtWidgets.QWidget):
             return
 
         ws_url = self._determine_ws_url()
+        print(f"Connecting to WS URL: {ws_url}")
         self.set_status(f"连接到 {ws_url} ...")
 
         headers = [f"Authorization: Bearer {self.token}"]
@@ -258,8 +272,25 @@ class PyClientGUI(QtWidgets.QWidget):
             return
         payload = {"room_id": room, "content": {"type": "text", "text": text}}
         headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
+        
+        # Get Send instance from Registry
+        actual_send_base = send_base
+        p = urlparse(send_base)
+        registry_url = f"{p.scheme}://{p.hostname}:8084"
         try:
-            r = requests.post(f"{send_base}/api/chat/send_message", json=payload, headers=headers, timeout=5)
+            r = requests.get(f"{registry_url}/registry/send/available", headers=headers, timeout=5)
+            if r.status_code == 200:
+                obj = r.json()
+                data = obj.get("data", {})
+                send_url = data.get("url")
+                if send_url:
+                    actual_send_base = send_url
+                    self.set_status(f"使用 Send 实例: {actual_send_base}")
+        except Exception as e:
+            self.set_status(f"Registry 不可用，使用默认 Send: {e}")
+        
+        try:
+            r = requests.post(f"{actual_send_base}/api/chat/send_message", json=payload, headers=headers, timeout=5)
             if r.status_code == 200:
                 self.set_status("发送成功")
             else:

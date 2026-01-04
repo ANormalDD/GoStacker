@@ -2,10 +2,8 @@ package server
 
 import (
 	"GoStacker/internal/meta/chat/group"
-	"GoStacker/internal/send/chat/send"
-	gateway_ws "GoStacker/internal/send/gateway/ws"
-	"GoStacker/internal/send/getGatewayAddr"
 	"GoStacker/internal/meta/user"
+	"GoStacker/internal/send/chat/send"
 	user_ws "GoStacker/internal/send/ws"
 	"GoStacker/pkg/logger"
 	"GoStacker/pkg/middleware"
@@ -43,14 +41,9 @@ func NewRouter(PushMod string) *gin.Engine {
 		if PushMod == "standalone" {
 			auth.GET("/ws", user_ws.WebSocketHandler)
 		}
-		auth.GET("/get_gateway_ws", getGatewayAddr.GetGatewayAddrHandler)
 		auth.POST("/chat/send_message", send.SendMessageHandler)
 	}
-	if PushMod == "gateway" {
-		gateway := g.Group("/gateway")
-		{
-			gateway.GET("/ws", gateway_ws.WebSocketHandler)
-		}
-	}
+	// Gateway mode no longer needs WebSocket endpoint at server level
+	// Gateway instances register directly with Registry service
 	return g
 }

@@ -1,0 +1,40 @@
+port: 8083
+name: "gostacker-registry"
+mode: "prod"
+version: "0.1"
+start_time: ""
+machine_id: 1
+
+log:
+  level: "debug"
+  filename: "logs/registry.log"
+  max_size: 100
+  max_backups: 7
+  max_age: 30
+
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  db: 0
+  password: ""
+  pool_size: 50
+  batch_size: 128
+
+mysql:
+  host: "127.0.0.1"
+  port: 3306
+  user: "root"
+  password: "root"
+  dbname: "GoStacker"
+  max_open_conns: 200
+  max_idle_conns: 50
+
+jwt:
+  secret: "secret"
+  expire_duration: 7200
+
+registry:
+  gateway_heartbeat_timeout: 30
+  send_heartbeat_timeout: 30
+  user_route_ttl: 120
+  cleanup_interval: 10

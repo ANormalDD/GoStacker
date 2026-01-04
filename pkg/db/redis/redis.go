@@ -163,6 +163,199 @@ func XAckWithRetry(retry int, stream string, group string, ids ...string) error 
 	return err
 }
 
+// SetEXWithRetry sets a key with an expiration time
+func SetEXWithRetry(retry int, key string, value interface{}, expiration time.Duration) error {
+	var err error
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		err = Rdb.SetEx(ctx, key, value, expiration).Err()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
+}
+
+// GetWithRetry gets a value by key
+func GetWithRetry(retry int, key string) (string, error) {
+	var err error
+	var result string
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		result, err = Rdb.Get(ctx, key).Result()
+		if err == nil {
+			return result, nil
+		}
+		if err == redis.Nil {
+			return "", redis.Nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return result, err
+}
+
+// MGetWithRetry gets multiple values by keys
+func MGetWithRetry(retry int, keys []string) ([]string, error) {
+	var err error
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		result, err := Rdb.MGet(ctx, keys...).Result()
+		if err == nil {
+			// Convert []interface{} to []string
+			strResult := make([]string, len(result))
+			for i, v := range result {
+				if v == nil {
+					strResult[i] = ""
+				} else {
+					strResult[i] = v.(string)
+				}
+			}
+			return strResult, nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return nil, err
+}
+
+// DelWithRetry deletes a key
+func DelWithRetry(retry int, key string) error {
+	var err error
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		err = Rdb.Del(ctx, key).Err()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
+}
+
+// ExistsWithRetry checks if a key exists
+func ExistsWithRetry(retry int, key string) (int64, error) {
+	var err error
+	var result int64
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		result, err = Rdb.Exists(ctx, key).Result()
+		if err == nil {
+			return result, nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return result, err
+}
+
+// ExpireWithRetry sets expiration on a key
+func ExpireWithRetry(retry int, key string, expiration time.Duration) error {
+	var err error
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		err = Rdb.Expire(ctx, key, expiration).Err()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
+}
+
+// ZAddWithRetry adds member to sorted set
+func ZAddWithRetry(retry int, key string, score float64, member string) error {
+	var err error
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		err = Rdb.ZAdd(ctx, key, redis.Z{Score: score, Member: member}).Err()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
+}
+
+// ZRangeWithScoresWithRetry gets members from sorted set with scores
+func ZRangeWithScoresWithRetry(retry int, key string, start, stop int64) ([]string, error) {
+	var err error
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		result, err := Rdb.ZRange(ctx, key, start, stop).Result()
+		if err == nil {
+			return result, nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return nil, err
+}
+
+// ZRemWithRetry removes member from sorted set
+func ZRemWithRetry(retry int, key string, members ...string) error {
+	var err error
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		err = Rdb.ZRem(ctx, key, members).Err()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
+}
+
+// SRemWithRetry removes member from set
+func SRemWithRetry(retry int, key string, members ...interface{}) error {
+	var err error
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		err = Rdb.SRem(ctx, key, members...).Err()
+		if err == nil {
+			return nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return err
+}
+
+// SCardWithRetry gets set cardinality
+func SCardWithRetry(retry int, key string) (int64, error) {
+	var err error
+	var result int64
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		result, err = Rdb.SCard(ctx, key).Result()
+		if err == nil {
+			return result, nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return result, err
+}
+
+// SRandMemberWithRetry gets a random member from set
+func SRandMemberWithRetry(retry int, key string) (string, error) {
+	var err error
+	var result string
+	for i := 0; i < retry; i++ {
+		ctx := context.Background()
+		result, err = Rdb.SRandMember(ctx, key).Result()
+		if err == nil {
+			return result, nil
+		}
+		if err == redis.Nil {
+			return "", redis.Nil
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return result, err
+}
+
+// Ping checks Redis connection
+func Ping() (string, error) {
+	ctx := context.Background()
+	return Rdb.Ping(ctx).Result()
+}
+
 func Close() {
 	_ = Rdb.Close()
 }

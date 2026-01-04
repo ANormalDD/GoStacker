@@ -4,7 +4,6 @@ import (
 	"GoStacker/cmd/server"
 	"GoStacker/internal/meta/chat/group"
 	chatsend "GoStacker/internal/send/chat/send"
-	"GoStacker/internal/send/gateway/mid"
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/db/mysql"
 	"GoStacker/pkg/db/redis"
@@ -70,8 +69,7 @@ func main() {
 			chatsend.StartMessageFlusher(interval, batch, stopCh)
 		}()
 	} else {
-		mid.RegisterPushOfflineMessagesFuc(push.PushOfflineMessages)
-		// start gateway dispatcher worker pool (configured via config.dispatcher)
+		// Gateway mode: start gateway dispatcher worker pool
 		gwWorkers := 0
 		gwQueue := 0
 		if config.Conf != nil && config.Conf.SendDispatcherConfig != nil {

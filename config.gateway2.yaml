@@ -1,10 +1,13 @@
-port: 8084
+port: 8085
 name: "gostacker-gateway"
 mode: "prod"
 version: "0.1"
 start_time: ""
-machine_id: 4
+machine_id: 5
 address: "127.0.0.1"
+
+registry:
+  url: "http://127.0.0.1:8083"
 
 log:
   level: "info"
@@ -34,16 +37,13 @@ jwt:
   secret: "secret"
   expire_duration: 7200
 
-center:
-  address: "ws://127.0.0.1:8081/gateway/ws?gateway_id=test_gateway2"
-
 dispatcher:
   worker_count: 4
   task_queue_size: 1024
   max_connections: 10000
   send_channel_size: 256
-  stream_name: "test_gateway2_stream"
-  group_name: "test_gateway2_group"
-  consumer_name: "test_gateway2_consumer"
+  stream_name: "gateway-gostacker-gateway-5_stream"
+  group_name: "gateway-gostacker-gateway-5_group"
+  consumer_name: "gateway-gostacker-gateway-5_consumer"
   interval: 5
   threshold_pending: 1000

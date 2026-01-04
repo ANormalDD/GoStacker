@@ -87,23 +87,33 @@ def create_private_room(meta_base, token):
         print(r.text)
         return
     
-def ws_connect(send_base, token):
+def ws_connect(send_base, token, registry_url=None):
     if not token:
         print("请先登录！")
         return
-    # Try to get gateway/push server address first
+    # Get gateway address from Registry service
+    # If registry_url is not provided, try to infer from send_base (assume port 8084)
+    if not registry_url:
+        # Default: assume registry is on same host as send, port 8084
+        p = urlparse(send_base)
+        registry_url = f"{p.scheme}://{p.hostname}:8084"
+    
     headers_req = {"Authorization": f"Bearer {token}"}
     try:
-        r = requests.get(f"{send_base}/api/get_gateway_ws", headers=headers_req, timeout=5)
-        print("Gateway response status:", r.status_code)
-        print("Gateway response text:", r.text)
+        r = requests.get(f"{registry_url}/registry/gateway/available", headers=headers_req, timeout=5)
+        print("Registry response status:", r.status_code)
+        print("Registry response text:", r.text)
         if r.status_code == 200:
             try:
                 obj = r.json()
                 data = obj.get("data", {})
                 addr = data.get("address")
-                if addr:
-                    # addr may be like "host:port" or a full URL. Ensure it has a scheme.
+                port = data.get("port")
+                if addr and port:
+                    # Build gateway URL from address and port
+                    gateway_base = f"http://{addr}:{port}"
+                elif addr:
+                    # Fallback: if port is missing, use address as-is
                     if addr.startswith("http://") or addr.startswith("https://"):
                         gateway_base = addr
                     else:
@@ -187,8 +197,23 @@ def ws_connect(send_base, token):
                 text = parts[2]
                 payload = {"room_id": room_id, "content": {"type": "text", "text": text}}
                 headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+                
+                # Get Send instance from Registry
+                actual_send_base = send_base
                 try:
-                    r = requests.post(f"{send_base}/api/chat/send_message", json=payload, headers=headers, timeout=5)
+                    r = requests.get(f"{registry_url}/registry/send/available", headers=headers, timeout=5)
+                    if r.status_code == 200:
+                        obj = r.json()
+                        data = obj.get("data", {})
+                        send_url = data.get("url")
+                        if send_url:
+                            actual_send_base = send_url
+                            print(f"Using Send instance: {actual_send_base}")
+                except Exception as e:
+                    print(f"Registry unavailable, using default Send: {e}")
+                
+                try:
+                    r = requests.post(f"{actual_send_base}/api/chat/send_message", json=payload, headers=headers, timeout=5)
                     if r.status_code == 200:
                         print("> sent")
                     else:

@@ -32,7 +32,9 @@ func ReplyBadRequest(c *gin.Context, msg string) {
 func ReplyUnauthorized(c *gin.Context, msg string) {
 	c.JSON(http.StatusUnauthorized, StandardResponse{Code: 401, Msg: msg})
 }
-
+func ReplyNotFound(c *gin.Context, msg string) {
+	c.JSON(http.StatusNotFound, StandardResponse{Code: 404, Msg: msg})
+}
 // ReplyError500 sends a 500 Internal Server Error with error message
 func ReplyError500(c *gin.Context, msg string) {
 	c.JSON(http.StatusInternalServerError, StandardResponse{Code: 500, Msg: msg})

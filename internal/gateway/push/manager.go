@@ -1,14 +1,15 @@
 package push
 
 import (
+	"GoStacker/internal/gateway/centerclient"
+	"GoStacker/internal/gateway/push/types"
+	"GoStacker/pkg/config"
+	"GoStacker/pkg/pendingTask"
+	"GoStacker/pkg/registry_client"
 	"errors"
 	"sync"
 	"sync/atomic"
 	"time"
-	"GoStacker/pkg/pendingTask"
-	"GoStacker/internal/gateway/centerclient"
-	"GoStacker/internal/gateway/push/types"
-	"GoStacker/pkg/config"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
@@ -22,6 +23,13 @@ var connCount int = 0
 var connCountLock sync.Mutex
 
 var totalPending int64
+
+var registryClient *registry_client.GatewayClient
+
+// SetRegistryClient sets the registry client for reporting user connections
+func SetRegistryClient(client *registry_client.GatewayClient) {
+	registryClient = client
+}
 
 type sendRequest struct {
 	msg  interface{}
@@ -200,6 +208,15 @@ func RegisterConnection(userID int64, conn *websocket.Conn) {
 	connCount++
 	connCountLock.Unlock()
 	go writerLoop(holder)
+
+	// Report user connection to Registry
+	if registryClient != nil {
+		if err := registryClient.ReportUserConnect(userID); err != nil {
+			zap.L().Warn("Failed to report user connection to registry",
+				zap.Int64("user_id", userID),
+				zap.Error(err))
+		}
+	}
 }
 
 func RemoveConnection(userID int64) error {
@@ -261,6 +278,16 @@ func RemoveConnection(userID int64) error {
 	connCountLock.Lock()
 	connCount--
 	connCountLock.Unlock()
+
+	// Report user disconnection to Registry
+	if registryClient != nil {
+		if err := registryClient.ReportUserDisconnect(userID); err != nil {
+			zap.L().Warn("Failed to report user disconnection to registry",
+				zap.Int64("user_id", userID),
+				zap.Error(err))
+		}
+	}
+
 	return nil
 }
 

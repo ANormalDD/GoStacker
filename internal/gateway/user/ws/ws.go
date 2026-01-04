@@ -1,7 +1,6 @@
 package ws
 
 import (
-	"GoStacker/internal/gateway/center_client/ws"
 	"GoStacker/internal/gateway/push"
 	"GoStacker/internal/gateway/push/types"
 	"net"
@@ -43,10 +42,7 @@ func WebSocketHandler(c *gin.Context) {
 	}
 	userIDInt64 := userID.(int64)
 	push.RegisterConnection(userIDInt64, conn)
-	// report to center that user connected
-	if err := ws.ReportUserConnect(userIDInt64); err != nil {
-		zap.L().Warn("ReportUserConnect failed", zap.Int64("userID", userIDInt64), zap.Error(err))
-	}
+	// User connection is now reported to Registry via push.RegisterConnection
 
 	push.PushViaWS(userIDInt64, 10*time.Second, types.ClientMessage{
 		ID:       -1,
@@ -137,9 +133,6 @@ func WebSocketHandler(c *gin.Context) {
 		}
 	}
 	push.RemoveConnection(userIDInt64)
-	// report to center that user disconnected
-	if err := ws.ReportUserDisconnect(userIDInt64); err != nil {
-		zap.L().Warn("ReportUserDisconnect failed", zap.Int64("userID", userIDInt64), zap.Error(err))
-	}
+	// User disconnection is now reported to Registry via push.RemoveConnection
 	zap.L().Info("WebSocket connection closed", zap.Int64("userID", userIDInt64))
 }

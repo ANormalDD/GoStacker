@@ -38,6 +38,9 @@ func (pm *PendingManager) SetDoneFunc(f DoneFunc) {
 }
 
 func (pm *PendingManager) getShard(msgID int64) *shard {
+	if msgID < 0 {
+		msgID = -msgID
+	}
 	return &pm.shards[msgID%shardCount]
 }
 

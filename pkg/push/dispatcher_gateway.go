@@ -1,12 +1,11 @@
 package push
 
 import (
-	"GoStacker/internal/send/gateway/userConn"
-	gw "GoStacker/internal/send/gateway/ws"
+	"GoStacker/internal/send/route"
 	"GoStacker/pkg/db/redis"
 	"GoStacker/pkg/pendingTask"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -66,11 +65,19 @@ func SendACKToSender(msgID int64) {
 		zap.L().Info("sendACKToSender: ACK sent to sender", zap.Int64("msgID", msgID), zap.Int64("senderID", senderID.(int64)))
 	}
 }
+
 func PushSingleViaGateway(userID int64, msg ClientMessage) error {
-	gid, ok := userConn.GetGatewayIDByUserID(userID)
-	if !ok {
-		return errors.New("no gateway found for user")
+	// Query route from cache/registry
+	gatewayID, _, err := route.GetUserGateway(userID)
+	if err != nil {
+		if err == route.ErrUserOffline {
+			zap.L().Debug("User offline, skipping push", zap.Int64("user_id", userID))
+			return err
+		}
+		zap.L().Error("Failed to get gateway for user", zap.Int64("user_id", userID), zap.Error(err))
+		return err
 	}
+
 	gwMsg := PushMessage{
 		ID:        msg.ID,
 		Type:      msg.Type,
@@ -79,8 +86,33 @@ func PushSingleViaGateway(userID int64, msg ClientMessage) error {
 		TargetIDs: []int64{userID},
 		Payload:   msg.Payload,
 	}
-	// send to gateway via internal ws manager; use 10s write timeout
-	if err := gw.SendToGatewayWithRedisStream(gid, gwMsg); err != nil {
+
+	// Send to gateway via Redis Stream
+	if err := sendToGatewayWithRedisStream(gatewayID, gwMsg); err != nil {
+		return err
+	}
+	return nil
+}
+
+// sendToGatewayWithRedisStream sends message to gateway via Redis Stream
+func sendToGatewayWithRedisStream(gatewayID string, message interface{}) error {
+	zap.L().Debug("Sending message to gateway via Redis Stream",
+		zap.String("gateway_id", gatewayID),
+		zap.Any("message", message))
+
+	data, err := json.Marshal(message)
+	if err != nil {
+		zap.L().Error("Failed to marshal message for Redis Stream", zap.Error(err))
+		return err
+	}
+
+	streamName := fmt.Sprintf("%s_stream", gatewayID)
+	err = redis.XAddWithRetry(2, streamName, map[string]interface{}{
+		"data": data,
+	})
+	zap.L().Debug("Redis stream enqueue", zap.String("stream", streamName))
+	if err != nil {
+		zap.L().Error("Failed to add message to Redis Stream", zap.Error(err))
 		return err
 	}
 	return nil
@@ -88,13 +120,22 @@ func PushSingleViaGateway(userID int64, msg ClientMessage) error {
 
 func gatewayWorker() {
 	for msg := range gatewayQueue {
-		// group target ids by gateway id
+		// Batch query routes for all target users
+		routeMap, err := route.BatchGetUserGateways(msg.TargetIDs)
+		if err != nil {
+			zap.L().Error("Failed to batch query routes", zap.Error(err))
+			// Continue with empty map, will push all to offline
+			routeMap = make(map[int64]*route.RouteInfo)
+		}
+
+		// Group target ids by gateway id
 		groups := make(map[string][]int64)
 		for _, uid := range msg.TargetIDs {
-			if gid, ok := userConn.GetGatewayIDByUserID(uid); ok {
-				groups[gid] = append(groups[gid], uid)
+			routeInfo, found := routeMap[uid]
+			if found {
+				groups[routeInfo.GatewayID] = append(groups[routeInfo.GatewayID], uid)
 			} else {
-				// no gateway found -> push to offline redis queue
+				// No gateway found -> push to offline redis queue
 				clientMsg := ClientMessage{
 					ID:       msg.ID,
 					Type:     msg.Type,
@@ -111,7 +152,7 @@ func gatewayWorker() {
 			}
 		}
 
-		// for each gateway, create a PushMessage and send to gateway
+		// For each gateway, create a PushMessage and send to gateway via Redis Stream
 		for gid, uids := range groups {
 			gwMsg := PushMessage{
 				ID:        msg.ID,
@@ -122,34 +163,30 @@ func gatewayWorker() {
 				Payload:   msg.Payload,
 			}
 
-			// send to gateway via internal ws manager; use 10s write timeout
-			if err := gw.SendToGatewayWithRedisStream(gid, gwMsg); err != nil {
-				if err == gw.ErrNoConn {
-					zap.L().Info("redis down, push to offline queues", zap.String("gateway", gid))
-					// push all messages for these user ids to offline redis
-					for _, uid := range uids {
-						clientMsg := ClientMessage{
-							ID:       msg.ID,
-							Type:     msg.Type,
-							RoomID:   msg.RoomID,
-							SenderID: msg.SenderID,
-							Payload:  msg.Payload,
-						}
-						marshaledMsg, err := json.Marshal(clientMsg)
-						if err != nil {
-							zap.L().Error("gateway dispatch: marshal offline client msg failed", zap.Error(err), zap.Int64("user", uid))
-							continue
-						}
-						if err := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(uid, 10), marshaledMsg); err != nil {
-							zap.L().Error("gateway dispatch: rpush offline failed", zap.Error(err), zap.Int64("user", uid))
-						}
+			// Send to gateway via Redis Stream
+			if err := sendToGatewayWithRedisStream(gid, gwMsg); err != nil {
+				zap.L().Error("gateway dispatch: send to gateway failed", zap.Error(err), zap.String("gateway", gid))
+				// Push to offline queues as fallback
+				for _, uid := range uids {
+					clientMsg := ClientMessage{
+						ID:       msg.ID,
+						Type:     msg.Type,
+						RoomID:   msg.RoomID,
+						SenderID: msg.SenderID,
+						Payload:  msg.Payload,
 					}
-				} else {
-					zap.L().Error("gateway dispatch: send to gateway failed", zap.Error(err), zap.String("gateway", gid))
-					pendingTask.DefaultPendingManager.Delete(msg.ID)
-					msg2sender.Delete(msg.ID)
-					continue
+					marshaledMsg, err := json.Marshal(clientMsg)
+					if err != nil {
+						zap.L().Error("gateway dispatch: marshal offline client msg failed", zap.Error(err), zap.Int64("user", uid))
+						continue
+					}
+					if err := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(uid, 10), marshaledMsg); err != nil {
+						zap.L().Error("gateway dispatch: rpush offline failed", zap.Error(err), zap.Int64("user", uid))
+					}
 				}
+				pendingTask.DefaultPendingManager.Delete(msg.ID)
+				msg2sender.Delete(msg.ID)
+				continue
 			}
 			pendingTask.DefaultPendingManager.DoneN(msg.ID, int32(len(uids)))
 		}

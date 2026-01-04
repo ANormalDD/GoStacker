@@ -2,13 +2,13 @@ package main
 
 import (
 	"GoStacker/internal/send/chat/send"
-	gateway_ws "GoStacker/internal/send/gateway/ws"
-	"GoStacker/pkg/config"
+	"GoStacker/internal/send/pushback"
+	"GoStacker/internal/send/pushnotify"
 	"GoStacker/pkg/logger"
 	"GoStacker/pkg/middleware"
 	"GoStacker/pkg/monitor"
 	"GoStacker/pkg/response"
-	"GoStacker/internal/send/getGatewayAddr"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -24,21 +24,19 @@ func NewRouter() *gin.Engine {
 		response.ReplySuccess(c, "pong")
 	})
 	g.GET("/metrics", gin.WrapH(monitor.Handler()))
+
+	// Internal API (no auth required) - for Gateway to call
+	internal := g.Group("/internal")
+	{
+		internal.POST("/pushback", pushback.PushbackHandler)
+		internal.POST("/push/notify_online", pushnotify.NotifyOnlineHandler)
+	}
+
 	// authenticated routes
 	auth := g.Group("/api", middleware.JWTAuthMiddleware())
 	{
 		// send route is always registered in send service; handler decides standalone/gateway
 		auth.POST("/chat/send_message", send.SendMessageHandler)
-		auth.GET("/get_gateway_ws", getGatewayAddr.GetGatewayAddrHandler)
-
-	}
-	
-	// If this send instance is running in gateway mode, also register gateway ws
-	if config.Conf != nil && config.Conf.PushMod == "gateway" {
-		gateway := g.Group("/gateway")
-		{
-			gateway.GET("/ws", gateway_ws.WebSocketHandler)
-		}
 	}
 
 	return g
