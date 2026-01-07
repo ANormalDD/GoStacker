@@ -250,7 +250,7 @@ GET /api/group/:room_id/members
 Authorization: Bearer <token>
 ```
 
-### Send 服务 (8081)
+### Send 服务
 
 **发送消息**
 ```http
@@ -265,7 +265,7 @@ Content-Type: application/json
 }
 ```
 
-### Gateway 服务 (8082+)
+### Gateway 服务
 
 **WebSocket 连接**
 ```javascript
@@ -289,7 +289,7 @@ ws.onmessage = (event) => {
 }
 ```
 
-### Registry 服务 (8084)
+### Registry 服务
 
 **获取可用 Gateway**
 ```http
