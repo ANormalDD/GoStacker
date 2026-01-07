@@ -1,99 +1,358 @@
-**项目简介**
- - **名称**: GoStacker — 一个轻量级、高性能的即时通讯 (IM) 后端服务。
- - **职责**: 提供连接网关、路由与发送、离线消息持久化、群组缓存写回、服务注册/发现与推送分发等 IM 后端能力。
+# GoStacker - 高性能分布式IM后端系统
 
-**仓库定位**
- - **入口**: [main.go](main.go)（单进程整合启动）；另外提供子服务启动入口如 [cmd/gateway/main.go](cmd/gateway/main.go) 等用于拆分部署。
+<div align="center">
 
-**目录结构概览**
- - **cmd/**: 各可独立运行的子服务入口，比如 `gateway`, `send`, `meta`, `flusher`。查看例如 [cmd/gateway/main.go](cmd/gateway/main.go) 。
- - **internal/**: 核心业务实现（gateway、send、meta）。
- - **pkg/**: 可复用底层模块（`bootstrap`, `config`, `db`, `logger`, `monitor`, `push` 等）。例如配置在 [pkg/config/config.go](pkg/config/config.go) 。
- - **config*.yaml**: 多个示例/环境配置文件（`config.yaml`, `config.gateway.yaml` 等）。
+![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Architecture](https://img.shields.io/badge/architecture-microservices-green)
+![Status](https://img.shields.io/badge/status-active-success)
 
-**整体架构与实现逻辑**
- - **启动与初始化**: 启动时通过 `pkg/config` 加载 YAML 配置，初始化日志、MySQL、Redis、监控等（参见 [pkg/bootstrap/bootstrap.go](pkg/bootstrap/bootstrap.go) 和 [main.go](main.go)）。
- - **模块划分**:
-	 - **Gateway 层**（`cmd/gateway` + `internal/gateway`）：负责接收客户端连接（HTTP/WS）、连接注册到中心/路由、与中心服务通信、将消息下发给内部发送组件。
-	 - **Send 层**（`cmd/send` + `internal/send`）：负责将消息投递到目标连接（网关）或持久化/离线写入 MySQL；包含发送回退、负载分发等机制。
-	 - **Meta 层**（`cmd/meta` + `internal/meta`）：用户、群组元数据管理，群组缓存、群组消息写回（flusher）逻辑。
-	 - **Flusher**（`cmd/flusher` + `internal/meta/chat/group/flusher.go`）：当启用 Group Cache 时，周期性将群组缓存写回 MySQL。
-	 - **Push 分发**（`pkg/push`, `internal/push`）：同一进程或独立进程两种 Push 模式（`push_mod` 配置：`standalone` 或 `gateway`），负责调度与下发离线通知或广播。
- - **消息流（高层）**:
-	 1. 客户端 -> Gateway（WS/HTTP）
-	 2. Gateway 验证/鉴权 -> 将消息送到 Send Dispatcher 或通过 Center 转发
-	 3. Send 层根据目标路由信息选择网关实例或走离线写入（MySQL/Redis）
-	 4. 若启用缓存，Flusher 后台将 Redis 缓存批量写回 MySQL
+一个基于 Go 语言开发的高性能、可扩展的分布式即时通讯（IM）系统后端
 
-**核心配置说明**
- - 配置入口: [pkg/config/config.go](pkg/config/config.go)，配置通过 `viper` 从 `config.yaml`（或 `--config` 指定文件）加载。
- - 重要配置项:
-	 - **Port/Address/Name**: 服务监听地址/端口/实例名
-	 - **PushMod**: 推送模式（`standalone` 或 `gateway`）
-	 - **MySQLConfig/RedisConfig**: 数据库与缓存连接
-	 - **GroupCacheConfig**: 群组缓存开关与写回参数（`enabled`、`flush_interval_seconds`、`batch_size`）
-	 - **SendDispatcherConfig/GatewayDispatcherConfig**: 发送/网关分发线程池与队列大小
+[特性](#-核心特性) • [架构](#-系统架构) • [快速开始](#-快速开始) • [文档](#-文档)
 
-**构建与运行**
- - 依赖: 需要本地安装 `go`（建议 1.20+），以及可访问的 MySQL 与 Redis。依赖在 `go.mod` 中声明。
- - 常用构建命令:
+</div>
+
+---
+
+## 📖 项目简介
+
+GoStacker 是一个分布式 IM 后端系统。系统采用微服务架构，通过服务注册中心实现动态负载均衡和服务发现，提供高可用、高性能的消息推送能力。
+
+
+## ✨ 核心特性
+
+### 🚀 高性能
+- **批量消息处理**：智能批处理（100用户/批）减少网络开销
+- **异步推送**：基于 Redis Stream 的消息队列解耦推送链路
+- **二级缓存**：本地缓存 + Redis 缓存
+
+### 🏗️ 分布式架构
+- **微服务设计**：Gateway、Send、Meta、Registry 四大服务独立部署
+- **服务注册发现**：Registry 中心化管理，心跳健康检查
+- **动态负载均衡**：基于实时负载的智能路由选择
+- **水平扩展**：所有服务支持多实例部署
+
+### 💾 数据可靠性
+- **缓存写回机制**：群组数据批量刷盘，减少 DB 压力
+- **消息 ACK 确认**：Pending Task 追踪消息推送状态
+- **优雅关机**：确保消息不丢失的平滑下线
+
+### 🔍 可观测性
+- **Prometheus 监控**：暴露 `/metrics` 端点，支持 Grafana 可视化
+- **结构化日志**：Zap 日志，支持日志轮转和分级
+- **性能追踪**：自研 Monitor 系统追踪 API 延迟和成功率
+
+---
+
+## 🏛️ 系统架构
+
+### 架构图
+![](./structure.png)
+### 服务说明
+
+| 服务 | 职责  | 部署模式 |
+|------|------|----------|
+| **Meta** | 用户管理、群组管理、认证  | 多实例 |
+| **Send** | 消息接收、路由分发  | 多实例 |
+| **Registry** | 服务注册、负载均衡、用户路由  | 单实例/集群 |
+| **Gateway** | WebSocket 连接、消息推送  | 多实例 |
+
+---
+
+## 🛠️ 技术栈
+
+### 后端框架
+- **语言**：Go 1.25+
+- **Web 框架**：Gin
+- **WebSocket**：Gorilla WebSocket
+
+### 数据存储
+- **关系型数据库**：MySQL 8.0+
+- **缓存/队列**：Redis 7.0+
+- **ORM**：原生 SQL（高性能场景）
+
+### 中间件
+- **消息队列**：Redis Stream
+- **配置管理**：Viper (支持热加载)
+- **日志**：Zap (结构化日志)
+
+### 监控与运维
+- **监控**：Prometheus + Grafana
+- **健康检查**：HTTP `/health` `/ping` 端点
+
+---
+
+## 🚀 快速开始
+
+### 前置要求
 
 ```bash
-# 在仓库根目录构建主可执行文件（整合版）
-go build -o bin/gostacker main.go
-
-# 构建并运行单一子服务（示例：gateway）
-cd cmd/gateway
-go build -o ../../bin/gateway main.go
-./../../bin/gateway -config config.gateway.yaml
+Go >= 1.25
+MySQL >= 8.0
+Redis >= 7.0
 ```
 
- - 直接运行（开发）:
+### 1. 克隆项目
 
 ```bash
-go run main.go            # 使用根目录 config.yaml
-go run ./cmd/gateway -config config.gateway.yaml
+git clone https://github.com/your-org/GoStacker.git
+cd GoStacker
 ```
 
-**运行示例（推荐开发步骤）**
- - 准备 `config.gateway.yaml`、`config.send.yaml`、`config.meta.yaml`，修改 MySQL/Redis 地址。
- - 启动网关: `go run ./cmd/gateway -config config.gateway.yaml`。
- - 启动 send: `go run ./cmd/send -config config.send.yaml`。
- - 启动 meta: `go run ./cmd/meta -config config.meta.yaml`（如需要）。
+### 2. 初始化数据库
 
-**日志与监控**
- - 日志: 使用 `pkg/logger`（zap）输出，配置在 `log` 段里。查看日志路径通过配置 `log.filename`。
- - 监控: 程序在启动时调用 `monitor.InitMonitor()` 暴露基础指标，可接入 Prometheus。查看 [pkg/monitor/monitor.go](pkg/monitor/monitor.go)。
+```bash
+# 创建数据库
+mysql -u root -p < model/chat_message.sql
+mysql -u root -p < model/chat_room.sql
+mysql -u root -p < model/user.sql
+```
 
-**数据存储与缓存策略**
- - MySQL: 存储历史消息、用户、群组等持久化数据（参见 `model/*.sql`）。
- - Redis: 用作在线路由、群组缓存与中间队列，高并发场景下使用 Redis 批量/流水线操作以降低延迟。
+### 3. 配置文件
 
-**推送模式说明**
- - `push_mod = standalone`:
-	 - 内置 Dispatcher 在当前进程处理推送，并启动 flusher/background flusher（如在 `main.go` 中所示）。
- - 非 `standalone`:
-	 - 通过 `push.StartGatewayDispatcher` 启动针对 Gateway 的分发器，适用于分布式部署，推送逻辑与网关分离。
+复制并修改配置文件：
 
-**开发与调试建议**
- - 本地测试可用 `config.gateway.yaml`、`config.send.yaml` 调试单模块。使用 `go run` 启动便于热重启与快速迭代。
- - 使用 `zap` 日志级别调整（config.log.level）以便在开发时打印更多调试信息。
- - 调试连接与路由问题时，可查看 Redis 中的在线路由键与 Center 注册信息（`internal/gateway/center_client`）。
+```bash
+cp config.yaml.example config.yaml
+cp config.gateway.yaml.example config.gateway.yaml
+cp config.send.yaml.example config.send.yaml
+cp config.meta.yaml.example config.meta.yaml
+cp config.registry.yaml.example config.registry.yaml
+```
 
-**常见问题与注意事项**
- - 配置变更会被 `viper` 监听并自动加载，请注意生产环境配置一致性。
- - 关闭服务时会依次关闭 MySQL/Redis 连接并 flush 日志。
- - 当启用群组缓存并使用 flusher 时，请根据消息量调整 `batch_size` 与 `flush_interval_seconds`，避免一次性写入过大批次导致数据库压力峰值。
+修改 config.yaml 中的数据库和 Redis 连接信息：
 
-**扩展与部署建议**
- - 建议将 `gateway` 与 `send` 拆分部署，分别做水平扩展。Center 负责注册/发现，建议使用单独的注册中心服务或通过数据库/Redis 实现全局视图。
- - 使用容器化（Docker）部署，每个子服务一个容器，配合 Kubernetes 做自动伸缩并使用 ConfigMap 管理 YAML 配置。
+```yaml
+mysql:
+  host: "127.0.0.1"
+  port: 3306
+  user: "root"
+  password: "your_password"
+  dbname: "gostacker"
 
-**阅读源码的关键文件**
- - `main.go` — 程序入口，展示了初始化顺序与推送模式分支。[main.go](main.go)
- - `pkg/bootstrap/bootstrap.go` — 常用初始化封装与清理函数。[pkg/bootstrap/bootstrap.go](pkg/bootstrap/bootstrap.go)
- - `pkg/config/config.go` — 所有可配置项结构与加载逻辑。[pkg/config/config.go](pkg/config/config.go)
- - `internal/send` — 发送相关实现（分发、路由、持久化）。
- - `internal/gateway` — 网关实现（中心注册、连接管理、HTTP/WS 路由）。
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 100
+```
 
+### 4. 编译项目
+
+```bash
+# Windows
+.\build.bat
+
+# Linux/Mac
+go build -o bin/meta ./cmd/meta
+go build -o bin/send ./cmd/send
+go build -o bin/gateway ./cmd/gateway
+go build -o bin/registry ./cmd/registry
+```
+
+### 5. 启动服务
+
+#### 方式一：独立模式（适合开发测试）
+
+```bash
+# 启动 Registry
+./bin/registry -config config.registry.yaml
+
+# 启动 Meta
+./bin/meta -config config.meta.yaml
+
+# 启动 Send
+./bin/send -config config.send.yaml
+
+# 启动 Gateway
+./bin/gateway -config config.gateway.yaml
+```
+
+#### 方式二：一键启动（Windows）
+
+```bash
+.\start.bat
+```
+
+### 6. 验证服务
+
+```bash
+# 检查 Meta 服务
+curl http://localhost:8080/health
+
+# 检查 Registry
+curl http://localhost:8084/registry/gateway/instances
+
+# 检查 Prometheus 指标
+curl http://localhost:8080/metrics
+```
+
+---
+
+## 📝 API 文档
+
+### Meta 服务 (8080)
+
+#### 用户认证
+
+**登录**
+```http
+POST /api/user/login
+Content-Type: application/json
+
+{
+  "username": "user1",
+  "password": "password123"
+}
+
+Response:
+{
+  "code": 200,
+  "message": "success",
+  "data": {
+    "token": "eyJhbGciOiJIUzI1NiIs...",
+    "user_id": 10001
+  }
+}
+```
+
+**注册**
+```http
+POST /api/user/register
+Content-Type: application/json
+
+{
+  "username": "newuser",
+  "password": "password123",
+  "nickname": "昵称"
+}
+```
+
+#### 群组管理
+
+**创建群组**
+```http
+POST /api/group/create
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "name": "技术讨论组",
+  "member_ids": [10001, 10002, 10003]
+}
+```
+
+**查询群组成员**
+```http
+GET /api/group/:room_id/members
+Authorization: Bearer <token>
+```
+
+### Send 服务 (8081)
+
+**发送消息**
+```http
+POST /api/chat/send_message
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "room_id": 1001,
+  "content": "Hello, World!",
+  "type": "text"
+}
+```
+
+### Gateway 服务 (8082+)
+
+**WebSocket 连接**
+```javascript
+const ws = new WebSocket('ws://gateway-host:8082/api/ws?token=<jwt_token>');
+
+ws.onmessage = (event) => {
+  const msg = JSON.parse(event.data);
+  console.log('收到消息:', msg);
+};
+
+// 消息格式
+{
+  "id": 123456,
+  "type": "chat",
+  "room_id": 1001,
+  "sender_id": 10001,
+  "payload": {
+    "content": "Hello!",
+    "timestamp": "2026-01-07T10:00:00Z"
+  }
+}
+```
+
+### Registry 服务 (8084)
+
+**获取可用 Gateway**
+```http
+GET /registry/gateway/available?user_id=10001
+
+Response:
+{
+  "code": 200,
+  "data": {
+    "gateway_id": "gateway-1-123",
+    "address": "192.168.1.100",
+    "port": 8082,
+    "load": 0.35
+  }
+}
+```
+
+---
+
+## ⚙️ 配置说明
+
+### Gateway 配置 (config.gateway.yaml)
+
+```yaml
+name: "gateway-1"
+port: 8082
+address: "192.168.1.100"
+machine_id: 1
+
+# 推送分发器配置
+dispatcher:
+  max_connections: 100000      # 最大连接数
+  worker_count: 10             # Worker 数量
+  send_channel_size: 1024      # 发送队列大小
+  stream_name: "gateway-1_stream"
+  group_name: "gateway_group"
+  consumer_name: "consumer-1"
+  interval: 5                  # 消费间隔（秒）
+
+# Registry 配置
+registry:
+  url: "http://localhost:8084"
+  gateway_heartbeat_timeout: 30  # 心跳超时（秒）
+
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  pool_size: 200
+
+log:
+  level: "info"
+  filename: "logs/gateway.log"
+  max_size: 100
+  max_backups: 5
+  max_age: 30
+```
+
+### 性能调优参数
+
+| 参数 | 说明 | 推荐值 |
+|------|------|--------|
+| `max_connections` | Gateway 最大连接数 | 100000 |
+| `worker_count` | 推送 Worker 数量 | CPU 核心数 x 2 |
+| `pool_size` | Redis 连接池大小 | 200-500 |
+| `send_channel_size` | 发送队列大小 | 1024-4096 |
 
