@@ -13,7 +13,7 @@ type SendMessageRequest struct {
 	Content json.RawMessage `json:"content" binding:"required"`
 }
 
-type RecallMessageRequest struct {
+type ResendMessageRequest struct {
 	MessageID int64 `json:"message_id" binding:"required"`
 }
 
@@ -37,11 +37,45 @@ func SendMessageHandler(c *gin.Context) {
 		return
 	}
 
-	err = SendMessage(req.RoomID, userID, payload)
+	id, err = SendMessage(req.RoomID, userID, payload)
 	if err != nil {
 		response.ReplyError500(c, err.Error())
 		return
 	}
-	response.ReplySuccess(c, "Message sent successfully")
+	response.ReplySuccessWithData(c, "success", gin.H{"msgID": id})
+}
 
+func ResendHandler(c *gin.Context) {
+	var req ResendMessageRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.ReplyBadRequest(c, "Invalid request")
+		return
+	}
+	id, exists := c.Get("userID")
+	if !exists {
+		response.ReplyUnauthorized(c, "Unauthorized")
+		return
+	}
+	userID := id.(int64)
+	cm, err := getMsgInfoByID(req.MessageID)
+	if err != nil {
+		response.ReplyError500(c, err.Error())
+		return
+	}
+	if cm.SenderID != userID {
+		response.ReplyUnauthorized(c, "Unauthorized")
+		return
+	}
+	payload, err := UnmarshalChatPayload(cm.Content)
+	if err != nil {
+		response.ReplyBadRequest(c, "Invalid content: "+err.Error())
+		return
+	}
+	//to do,check msg
+	err = BroadcastMessage(req.MessageID, cm.RoomID, userID, payload)
+	if err != nil {
+		response.ReplyError500(c, err.Error())
+		return
+	}
+	response.ReplySuccess(c, "success")
 }

@@ -130,3 +130,11 @@ func insertBatch(msgs []cachedMessage) error {
 	_, err := mysql.DB.Exec(query, vals...)
 	return err
 }
+
+func getMsgInfoByID(id int64) (cachedMessage, error) {
+	//search from mysql
+	query := "SELECT id, room_id, sender_id, type, content, created_at FROM chat_messages WHERE id = ?"
+	var cm cachedMessage
+	err := mysql.DB.QueryRow(query, id).Scan(&cm.ID, &cm.RoomID, &cm.SenderID, &cm.Type, &cm.Content, &cm.CreatedAt)
+	return cm, err
+}

@@ -37,6 +37,7 @@ func NewRouter() *gin.Engine {
 	{
 		// send route is always registered in send service; handler decides standalone/gateway
 		auth.POST("/chat/send_message", send.SendMessageHandler)
+		auth.POST("/chat/resend_message", send.ResendHandler)
 	}
 
 	return g

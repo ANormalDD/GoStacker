@@ -26,10 +26,10 @@ func BroadcastMessage(id int64, roomID int64, senderID int64, content ChatPayloa
 	return push.Dispatch_gateway(msg)
 }
 
-func SendMessage(roomID, senderID int64, text ChatPayload) error {
+func SendMessage(roomID, senderID int64, text ChatPayload) (int64, error) {
 	id, err := InsertMessage(roomID, senderID, text)
 	if err != nil {
-		return err
+		return id, err
 	}
-	return BroadcastMessage(id, roomID, senderID, text)
+	return id, BroadcastMessage(id, roomID, senderID, text)
 }
