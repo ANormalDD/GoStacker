@@ -152,8 +152,8 @@ bin/gateway2.exe --config config.gateway2.yaml
 ```bash
 cd client
 pip install -r requirements.txt
-
 python pyclient_gui.py
+```
 
 
 ## 项目结构
