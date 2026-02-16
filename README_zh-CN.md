@@ -147,21 +147,13 @@ bin/gateway2.exe --config config.gateway2.yaml
 
 ### 5. 测试客户端
 
-项目附带 Python CLI 客户端，支持注册、登录、发消息、WebSocket 接收：
+项目附带 Python 客户端，支持注册、登录、发消息、WebSocket 接收：
 
 ```bash
 cd client
 pip install -r requirements.txt
 
-# 注册
-python pyclient.py register --backend http://localhost:8082
-
-# 登录
-python pyclient.py login --backend http://localhost:8082
-
-# WebSocket 连接 + 交互式聊天
-TOKEN=<your_jwt> python pyclient.py ws --backend http://localhost:8084
-```
+python pyclient_gui.py
 
 
 ## 项目结构
