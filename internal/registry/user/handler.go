@@ -121,24 +121,7 @@ func BatchQueryRoutesHandler(c *gin.Context) {
 func GetAvailableGatewayHandler(c *gin.Context) {
 	userIDStr := c.Query("user_id")
 	if userIDStr == "" {
-		// If no user_id provided, just return lowest load gateway
-		gwInfo, err := gateway.GetLowestLoadGateway()
-		if err != nil {
-			if err == gateway.ErrNoAvailableGateway {
-				zap.L().Error("No available gateway")
-				response.ReplyError500(c, "No available gateway")
-				return
-			}
-			zap.L().Error("Failed to get available gateway", zap.Error(err))
-			response.ReplyError500(c, "Failed to get available gateway: "+err.Error())
-			return
-		}
-
-		response.ReplySuccessWithData(c, "available", gin.H{
-			"gateway_id": gwInfo.GatewayID,
-			"address":    gwInfo.Address,
-			"port":       gwInfo.Port,
-		})
+		response.ReplyBadRequest(c, "user_id is required")
 		return
 	}
 

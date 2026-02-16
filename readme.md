@@ -1,358 +1,230 @@
-# GoStacker - 高性能分布式IM后端系统
+# GoStacker
 
-<div align="center">
+![Go Version](https://img.shields.io/github/go-mod/go-version/ANormalDD/GoStacker)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ANormalDD/GoStacker)](https://goreportcard.com/report/github.com/ANormalDD/GoStacker)
+![License](https://img.shields.io/github/license/ANormalDD/GoStacker)
 
-![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?style=flat&logo=go)
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Architecture](https://img.shields.io/badge/architecture-microservices-green)
-![Status](https://img.shields.io/badge/status-active-success)
+> **GoStacker** is a high-performance, scalable distributed Instant Messaging (IM) system.
+> It adopts a microservices architecture, supporting **multi-gateway load balancing**, **reliable message delivery**, and **write-diffusion optimization**. It is designed to help developers deeply understand the architectural design and implementation details of distributed IM systems.
 
-一个基于 Go 语言开发的高性能、可扩展的分布式即时通讯（IM）系统后端
+[中文文档](README_zh-CN.md)
 
-[特性](#-核心特性) • [架构](#-系统架构) • [快速开始](#-快速开始) • [文档](#-文档)
+## Tech Stack
 
-</div>
+- **Language**: Go 1.25+
+- **Web Framework**: [Gin](https://github.com/gin-gonic/gin)
+- **WebSocket**: [gorilla/websocket](https://github.com/gorilla/websocket)
+- **Database**: MySQL (via [sqlx](https://github.com/jmoiron/sqlx) + [sqlhooks](https://github.com/qustavo/sqlhooks))
+- **Cache/MQ**: Redis (go-redis v9), using Redis Stream as Message Queue
+- **Auth**: JWT ([golang-jwt/jwt](https://github.com/golang-jwt/jwt))
+- **ID Generator**: [Snowflake](https://github.com/bwmarrin/snowflake) Distributed ID
+- **Config**: [Viper](https://github.com/spf13/viper) + YAML
+- **Logging**: [Zap](https://go.uber.org/zap) + [Lumberjack](https://github.com/natefinch/lumberjack) for rotation
+- **Monitoring**: [Prometheus](https://github.com/prometheus/client_golang) metrics (`/metrics`)
+- **Encryption**: golang.org/x/crypto (bcrypt)
+- **Local Cache**: [Ristretto](https://github.com/dgraph-io/ristretto)
 
----
+## Key Features
 
-## 📖 项目简介
+### 1. Microservices Architecture
+Split into four independent services: Gateway (Connection Management), Send (Message Routing), Meta (User/Group Management), and Registry (Service Discovery). Each service is deployed independently with clear responsibilities.
 
-GoStacker 是一个分布式 IM 后端系统。系统采用微服务架构，通过服务注册中心实现动态负载均衡和服务发现，提供高可用、高性能的消息推送能力。
+### 2. Self-Adaptive Service Discovery & Load Balancing
+Implements real-time load ranking of Gateway instances using Redis ZSet. Combines heartbeat health checks with TTL auto-expiration to achieve automatic failure detection and least-load routing.
 
+### 3. High-Concurrency WebSocket Management
+Uses `sync.Map` for connection mapping. Each connection has an independent send queue and Writer goroutine to avoid concurrent write conflicts. Supports automatic draining and redelivery of unsent messages during connection migration.
 
-## ✨ 核心特性
+### 4. Write-Back Caching
+Group member data is written to Redis cache and marked as dirty (ZSet timestamp sorting). The background Flusher service periodically batches dirty data to MySQL. Uses Redis Pipeline to atomically clear dirty flags and set short TTLs, balancing read performance and data consistency.
 
-### 🚀 高性能
-- **批量消息处理**：智能批处理（100用户/批）减少网络开销
-- **异步推送**：基于 Redis Stream 的消息队列解耦推送链路
-- **二级缓存**：本地缓存 + Redis 缓存
+### 5. Reliable Message Delivery
+Implements a Sharded Lock Pending Task Manager (64 shards + atomic) to track the delivery status of every message. Automatically triggers a PushBack mechanism to route messages back to the Send Service when a user is offline.
 
-### 🏗️ 分布式架构
-- **微服务设计**：Gateway、Send、Meta、Registry 四大服务独立部署
-- **服务注册发现**：Registry 中心化管理，心跳健康检查
-- **动态负载均衡**：基于实时负载的智能路由选择
-- **水平扩展**：所有服务支持多实例部署
+### 6. Observability
+Self-developed Sliding Window Monitor (Ring Buffer + Async Insertion) stats API latency and success rates in real-time. Integrates with Prometheus to expose `/metrics`. Uses structured logging with Zap and log rotation with Lumberjack.
 
-### 💾 数据可靠性
-- **缓存写回机制**：群组数据批量刷盘，减少 DB 压力
-- **消息 ACK 确认**：Pending Task 追踪消息推送状态
-- **优雅关机**：确保消息不丢失的平滑下线
+### 7. User Routing Lease Optimization
+When a user disconnects, the User→Gateway route is not deleted immediately but marked as `disconnected` with a retained TTL (configurable). If the user reconnects shortly, the original Gateway is reused to avoid load balancing jitter and connection migration overheads. Registry and Send services support local caching of User→Gateway routes (TTL shorter than Redis) to reduce high-frequency network round-trips.
 
-### 🔍 可观测性
-- **Prometheus 监控**：暴露 `/metrics` 端点，支持 Grafana 可视化
-- **结构化日志**：Zap 日志，支持日志轮转和分级
-- **性能追踪**：自研 Monitor 系统追踪 API 延迟和成功率
+## Architecture Overview
 
----
+![architecture](structure.png)
 
-## 🏛️ 系统架构
+The system consists of **5 Microservices**:
 
-### 架构图
-![](./structure.png)
-### 服务说明
+| Service | Default Port | Description |
+|---------|--------------|-------------|
+| **Meta Service** | 8082 | User/Group metadata management (Register, Login, Group CRUD). |
+| **Registry Service** | 8083 | Service discovery center. Manages Gateway/Send instances and User routing. |
+| **Gateway** | 8084+ | Message forwarding service. Maintains WebSocket persistent connections. Supports multi-instance deployment. |
+| **Send Service** | 8081 | Stateless message sending service. Handles message routing and offline storage. |
+| **Flusher** | - | Background scheduled task. Batches dirty data (Group info, Messages) from cache to DB. |
 
-| 服务 | 职责  | 部署模式 |
-|------|------|----------|
-| **Meta** | 用户管理、群组管理、认证  | 多实例 |
-| **Send** | 消息接收、路由分发  | 多实例 |
-| **Registry** | 服务注册、负载均衡、用户路由  | 单实例/集群 |
-| **Gateway** | WebSocket 连接、消息推送  | 多实例 |
+### Message Flow
 
----
-
-## 🛠️ 技术栈
-
-### 后端框架
-- **语言**：Go 1.25+
-- **Web 框架**：Gin
-- **WebSocket**：Gorilla WebSocket
-
-### 数据存储
-- **关系型数据库**：MySQL 8.0+
-- **缓存/队列**：Redis 7.0+
-- **ORM**：原生 SQL（高性能场景）
-
-### 中间件
-- **消息队列**：Redis Stream
-- **配置管理**：Viper (支持热加载)
-- **日志**：Zap (结构化日志)
-
-### 监控与运维
-- **监控**：Prometheus + Grafana
-- **健康检查**：HTTP `/health` `/ping` 端点
-
----
-
-## 🚀 快速开始
-
-### 前置要求
-
-```bash
-Go >= 1.25
-MySQL >= 8.0
-Redis >= 7.0
+```
+Client ──WebSocket──▶ Gateway ◀──Redis Stream──┐
+                                                 │ (Grouped by GatewayID)
+Client ──HTTP POST──▶ Send Service ─────────────┘
+                         │
+                         ├──▶ Meta Service (Get Group Members)
+                         └──▶ Registry Service (Query UserID → GatewayID Route)
 ```
 
-### 1. 克隆项目
+1. Client gets available Gateway address from **Registry Service** (Load Balancing).
+2. Client establishes WebSocket connection with **Gateway**.
+3. To send a message, Client calls **Send Service** HTTP API.
+4. Send Service queries **Meta Service** for group members.
+5. Send Service queries **Registry Service** for the Gateway of each user (or uses local cache).
+6. Send Service groups messages by GatewayID and writes to corresponding **Redis Stream**.
+7. Each Gateway consumes its own Redis Stream and pushes to clients via WebSocket.
+8. If user is offline, message is stored in **Redis Offline Queue** for fetch upon reconnection.
 
-```bash
-git clone https://github.com/your-org/GoStacker.git
-cd GoStacker
+## Quick Start
+
+### Prerequisites
+
+- Go 1.25+
+- MySQL 5.7+
+- Redis 6.0+
+
+### 1. Initialize Database
+
+```sql
+CREATE DATABASE GoStacker CHARACTER SET utf8mb4;
+USE GoStacker;
+
+-- Execute SQL files in model/ directory
+SOURCE model/user.sql;
+SOURCE model/chat_room.sql;
+SOURCE model/chat_message.sql;
 ```
 
-### 2. 初始化数据库
+### 2. Configure
 
-```bash
-# 创建数据库
-mysql -u root -p < model/chat_message.sql
-mysql -u root -p < model/chat_room.sql
-mysql -u root -p < model/user.sql
-```
+Modify `config.*.yaml` files to match your MySQL, Redis connection info and JWT secret.
 
-### 3. 配置文件
-
-复制并修改配置文件：
-
-```bash
-cp config.yaml.example config.yaml
-cp config.gateway.yaml.example config.gateway.yaml
-cp config.send.yaml.example config.send.yaml
-cp config.meta.yaml.example config.meta.yaml
-cp config.registry.yaml.example config.registry.yaml
-```
-
-修改 config.yaml 中的数据库和 Redis 连接信息：
-
-```yaml
-mysql:
-  host: "127.0.0.1"
-  port: 3306
-  user: "root"
-  password: "your_password"
-  dbname: "gostacker"
-
-redis:
-  host: "127.0.0.1"
-  port: 6379
-  password: ""
-  db: 0
-  pool_size: 100
-```
-
-### 4. 编译项目
+### 3. Build
 
 ```bash
 # Windows
-.\build.bat
+build.bat
 
-# Linux/Mac
-go build -o bin/meta ./cmd/meta
-go build -o bin/send ./cmd/send
-go build -o bin/gateway ./cmd/gateway
-go build -o bin/registry ./cmd/registry
+# Or manual build
+go build -o bin/meta.exe ./cmd/meta
+go build -o bin/registry.exe ./cmd/registry
+go build -o bin/flusher.exe ./cmd/flusher
+go build -o bin/send.exe ./cmd/send
+go build -o bin/gateway.exe ./cmd/gateway
 ```
 
-### 5. 启动服务
+### 4. Run
 
-#### 方式一：独立模式（适合开发测试）
+Start in the following order (due to dependencies):
 
 ```bash
-# 启动 Registry
-./bin/registry -config config.registry.yaml
-
-# 启动 Meta
-./bin/meta -config config.meta.yaml
-
-# 启动 Send
-./bin/send -config config.send.yaml
-
-# 启动 Gateway
-./bin/gateway -config config.gateway.yaml
+# Windows One-Click Start
+start.bat
 ```
 
-#### 方式二：一键启动（Windows）
+Manual Start Order:
+```bash
+# 1. Meta Service (User/Group Metadata)
+bin/meta.exe --config config.meta.yaml
+
+# 2. Registry Service (Service Discovery)
+bin/registry.exe --config config.registry.yaml
+
+# 3. Flusher (Cache Persistence)
+bin/flusher.exe --config config.flusher.yaml
+
+# 4. Send Service (Message Sending)
+bin/send.exe --config config.send.yaml
+
+# 5. Gateway (WebSocket Gateway, multiple instances supported)
+bin/gateway.exe --config config.gateway.yaml
+bin/gateway2.exe --config config.gateway2.yaml
+```
+
+### 5. Test Client
+
+A Python CLI client is included for testing registration, login, sending messages, and WebSocket receiving:
 
 ```bash
-.\start.bat
+cd client
+pip install -r requirements.txt
+
+# Register
+python pyclient.py register --backend http://localhost:8082
+
+# Login
+python pyclient.py login --backend http://localhost:8082
+
+# WebSocket Connect + Interactive Chat
+TOKEN=<your_jwt> python pyclient.py ws --backend http://localhost:8084
 ```
 
-### 6. 验证服务
+## Project Structure
 
-```bash
-# 检查 Meta 服务
-curl http://localhost:8080/health
-
-# 检查 Registry
-curl http://localhost:8084/registry/gateway/instances
-
-# 检查 Prometheus 指标
-curl http://localhost:8080/metrics
+```
+GoStacker/
+├── cmd/                          # Entry points for microservices
+│   ├── gateway/                  # Gateway Service (WebSocket + Push)
+│   ├── send/                     # Send Service (Routing + Offline Msg)
+│   ├── meta/                     # Meta Service (User & Group Mgmt)
+│   ├── registry/                 # Registry Service (Discovery)
+│   └── flusher/                  # Flusher Service (Cache Persistence)
+│
+├── internal/                     # Private business logic
+│   ├── gateway/                  # Gateway logic
+│   ├── send/                     # Send logic
+│   ├── meta/                     # Meta logic
+│   ├── registry/                 # Registry logic
+│   └── server/                   # Common server module
+│
+├── pkg/                          # Public shared packages
+│   ├── bootstrap/                # Initialization (Config/Logger/DB)
+│   ├── config/                   # Configuration loading
+│   ├── db/                       # Database wrappers
+│   ├── logger/                   # Zap logger
+│   ├── middleware/               # HTTP middlewares (JWT)
+│   ├── monitor/                  # Prometheus monitoring
+│   ├── push/                     # Push abstraction
+│   ├── registry_client/          # Registry client SDK
+│   └── utils/                    # Utilities (Snowflake, etc.)
+│
+├── model/                        # SQL schemas
+├── client/                       # Python Test Client
+├── config.*.yaml                 # Configuration files
+├── build.bat                     # Build script
+└── start.bat                     # Start script
 ```
 
----
+## Database Design
 
-## 📝 API 文档
+See [Database Design](docs/database.md) for details.
 
-### Meta 服务 (8080)
+## API Documentation
 
-#### 用户认证
+See [API Documentation](docs/api.md) for details.
 
-**登录**
-```http
-POST /api/user/login
-Content-Type: application/json
+## Roadmap
 
-{
-  "username": "user1",
-  "password": "password123"
-}
+- [x] **Basic Features**: 1-on-1 Chat, Group Chat, Offline Messaging
+- [x] **Distributed Arch**: Service Discovery (Registry), Gateway Load Balancing
+- [x] **Reliability**: Message ACK, Write-Back Caching
+- [ ] **Performance**: Protobuf support, Connection Pool Optimization
+- [ ] **Observability**: Enhance Prometheus Metrics
+- [ ] **Quality Assurance**: Automated Testing (Unit/Integration)
+- [ ] **Deployment**: Docker Compose support
+- [ ] **Cloud Native**: Kubernetes (Helm Charts) support
+- [ ] **Enhancement**: Message Recall, Read Receipts
 
-Response:
-{
-  "code": 200,
-  "message": "success",
-  "data": {
-    "token": "eyJhbGciOiJIUzI1NiIs...",
-    "user_id": 10001
-  }
-}
-```
+## Contributing
 
-**注册**
-```http
-POST /api/user/register
-Content-Type: application/json
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-{
-  "username": "newuser",
-  "password": "password123",
-  "nickname": "昵称"
-}
-```
+## License
 
-#### 群组管理
-
-**创建群组**
-```http
-POST /api/group/create
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "name": "技术讨论组",
-  "member_ids": [10001, 10002, 10003]
-}
-```
-
-**查询群组成员**
-```http
-GET /api/group/:room_id/members
-Authorization: Bearer <token>
-```
-
-### Send 服务
-
-**发送消息**
-```http
-POST /api/chat/send_message
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "room_id": 1001,
-  "content": "Hello, World!",
-  "type": "text"
-}
-```
-
-### Gateway 服务
-
-**WebSocket 连接**
-```javascript
-const ws = new WebSocket('ws://gateway-host:8082/api/ws?token=<jwt_token>');
-
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-  console.log('收到消息:', msg);
-};
-
-// 消息格式
-{
-  "id": 123456,
-  "type": "chat",
-  "room_id": 1001,
-  "sender_id": 10001,
-  "payload": {
-    "content": "Hello!",
-    "timestamp": "2026-01-07T10:00:00Z"
-  }
-}
-```
-
-### Registry 服务
-
-**获取可用 Gateway**
-```http
-GET /registry/gateway/available?user_id=10001
-
-Response:
-{
-  "code": 200,
-  "data": {
-    "gateway_id": "gateway-1-123",
-    "address": "192.168.1.100",
-    "port": 8082,
-    "load": 0.35
-  }
-}
-```
-
----
-
-## ⚙️ 配置说明
-
-### Gateway 配置 (config.gateway.yaml)
-
-```yaml
-name: "gateway-1"
-port: 8082
-address: "192.168.1.100"
-machine_id: 1
-
-# 推送分发器配置
-dispatcher:
-  max_connections: 100000      # 最大连接数
-  worker_count: 10             # Worker 数量
-  send_channel_size: 1024      # 发送队列大小
-  stream_name: "gateway-1_stream"
-  group_name: "gateway_group"
-  consumer_name: "consumer-1"
-  interval: 5                  # 消费间隔（秒）
-
-# Registry 配置
-registry:
-  url: "http://localhost:8084"
-  gateway_heartbeat_timeout: 30  # 心跳超时（秒）
-
-redis:
-  host: "127.0.0.1"
-  port: 6379
-  pool_size: 200
-
-log:
-  level: "info"
-  filename: "logs/gateway.log"
-  max_size: 100
-  max_backups: 5
-  max_age: 30
-```
-
-### 性能调优参数
-
-| 参数 | 说明 | 推荐值 |
-|------|------|--------|
-| `max_connections` | Gateway 最大连接数 | 100000 |
-| `worker_count` | 推送 Worker 数量 | CPU 核心数 x 2 |
-| `pool_size` | Redis 连接池大小 | 200-500 |
-| `send_channel_size` | 发送队列大小 | 1024-4096 |
-
+This project is for learning and research purposes.

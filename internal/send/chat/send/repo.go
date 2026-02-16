@@ -14,7 +14,6 @@ import (
 var sfNode *snowflake.Node
 
 func init() {
-	// 默认使用 node 1；在生产环境中可考虑从配置或机器 ID 派生节点号
 	node, err := snowflake.NewNode(1)
 	if err != nil {
 		panic(err)
