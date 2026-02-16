@@ -36,7 +36,7 @@ class WorkerSignals(QtCore.QObject):
 class PyClientGUI(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("GoStacker PySide6 客户端")
+        self.setWindowTitle("GoStacker PySide6 Client")
         self.resize(800, 600)
 
         self.token = None
@@ -68,7 +68,7 @@ class PyClientGUI(QtWidgets.QWidget):
         self.password = QtWidgets.QLineEdit()
         self.password.setEchoMode(QtWidgets.QLineEdit.Password)
         self.password.setPlaceholderText("password")
-        self.login_btn = QtWidgets.QPushButton("登录")
+        self.login_btn = QtWidgets.QPushButton("Login")
         form.addWidget(self.username)
         form.addWidget(self.password)
         form.addWidget(self.login_btn)
@@ -80,7 +80,7 @@ class PyClientGUI(QtWidgets.QWidget):
         self.token_edit = QtWidgets.QLineEdit()
         self.token_edit.setReadOnly(True)
         info_row.addWidget(self.token_edit)
-        self.connect_ws_btn = QtWidgets.QPushButton("连接 WebSocket")
+        self.connect_ws_btn = QtWidgets.QPushButton("Connect WebSocket")
         info_row.addWidget(self.connect_ws_btn)
         layout.addLayout(info_row)
 
@@ -95,20 +95,20 @@ class PyClientGUI(QtWidgets.QWidget):
         self.room_combo = QtWidgets.QComboBox()
         self.room_combo.setEditable(False)
         send_row.addWidget(self.room_combo)
-        self.refresh_rooms_btn = QtWidgets.QPushButton("刷新已加入群")
+        self.refresh_rooms_btn = QtWidgets.QPushButton("Refresh Joined Groups")
         send_row.addWidget(self.refresh_rooms_btn)
         self.msg_input = QtWidgets.QLineEdit()
-        self.msg_input.setPlaceholderText("消息文本...")
+        self.msg_input.setPlaceholderText("Message text...")
         send_row.addWidget(self.msg_input)
-        self.send_btn = QtWidgets.QPushButton("发送 (HTTP)")
+        self.send_btn = QtWidgets.QPushButton("Send (HTTP)")
         send_row.addWidget(self.send_btn)
         layout.addLayout(send_row)
 
         # Group actions
         group_row = QtWidgets.QHBoxLayout()
-        self.search_btn = QtWidgets.QPushButton("搜索群")
-        self.request_join_btn = QtWidgets.QPushButton("提交入群申请")
-        self.list_requests_btn = QtWidgets.QPushButton("查询入群申请")
+        self.search_btn = QtWidgets.QPushButton("Search Groups")
+        self.request_join_btn = QtWidgets.QPushButton("Request to Join Group")
+        self.list_requests_btn = QtWidgets.QPushButton("Query Join Requests")
         group_row.addWidget(self.search_btn)
         group_row.addWidget(self.request_join_btn)
         group_row.addWidget(self.list_requests_btn)
@@ -139,13 +139,13 @@ class PyClientGUI(QtWidgets.QWidget):
     def do_login(self):
         meta_base = self.meta_backend_edit.text().strip()
         if not meta_base:
-            self.set_status("请先填写 meta backend URL")
+            self.set_status("Please fill in meta backend URL first")
             return
         payload = {"username": self.username.text().strip(), "password": self.password.text()}
         try:
             r = requests.post(f"{meta_base}/login", json=payload, timeout=5)
             if r.status_code != 200:
-                self.set_status(f"登录失败: {r.status_code}")
+                self.set_status(f"Login failed: {r.status_code}")
                 try:
                     self.append_message(r.text)
                 except Exception:
@@ -157,13 +157,13 @@ class PyClientGUI(QtWidgets.QWidget):
             if token:
                 self.token = token
                 self.token_edit.setText(token)
-                self.set_status("登录成功")
-                # 自动刷新已加入群列表
+                self.set_status("Login successful")
+                # Auto refresh joined groups list
                 QtCore.QTimer.singleShot(100, self.fetch_joined_rooms)
             else:
-                self.set_status("登录没有返回 token")
+                self.set_status("Login did not return token")
         except Exception as e:
-            self.set_status(f"登录错误: {e}")
+            self.set_status(f"Login error: {e}")
 
     def _determine_ws_url(self):
         send_base = self.send_backend_edit.text().strip()
@@ -198,22 +198,22 @@ class PyClientGUI(QtWidgets.QWidget):
 
     def toggle_ws(self):
         if self.ws_app:
-            self.set_status("关闭 WS...")
+            self.set_status("Closing WS...")
             try:
                 self.ws_app.close()
             except Exception:
                 pass
             self.ws_app = None
-            self.set_status("WS 已断开")
+            self.set_status("WS disconnected")
             return
 
         if not self.token:
-            self.set_status("请先登录以获取 token")
+            self.set_status("Please login to get token first")
             return
 
         ws_url = self._determine_ws_url()
         print(f"Connecting to WS URL: {ws_url}")
-        self.set_status(f"连接到 {ws_url} ...")
+        self.set_status(f"Connecting to {ws_url} ...")
 
         headers = [f"Authorization: Bearer {self.token}"]
 
@@ -226,13 +226,13 @@ class PyClientGUI(QtWidgets.QWidget):
             self.signals.message.emit(txt)
 
         def on_error(ws, error):
-            self.signals.status.emit(f"WS 错误: {error}")
+            self.signals.status.emit(f"WS Error: {error}")
 
         def on_close(ws, code, reason):
-            self.signals.status.emit(f"WS 关闭: {code} {reason}")
+            self.signals.status.emit(f"WS Closed: {code} {reason}")
 
         def on_open(ws):
-            self.signals.status.emit(f"WS 已连接: {ws_url}")
+            self.signals.status.emit(f"WS Connected: {ws_url}")
 
         self.ws_app = websocket.WebSocketApp(
             ws_url,
@@ -247,28 +247,28 @@ class PyClientGUI(QtWidgets.QWidget):
             try:
                 self.ws_app.run_forever(sslopt={"cert_reqs": 0})
             except Exception as e:
-                self.signals.status.emit(f"WS 运行错误: {e}")
+                self.signals.status.emit(f"WS Run Error: {e}")
 
         self.ws_thread = threading.Thread(target=run_ws, daemon=True)
         self.ws_thread.start()
 
     def do_send_message(self):
         if not self.token:
-            self.set_status("请先登录")
+            self.set_status("Please login first")
             return
         send_base = self.send_backend_edit.text().strip()
         if self.room_combo.count() == 0:
-            self.set_status("没有已加入的群，请刷新或加入群后重试")
+            self.set_status("No joined groups, please refresh or join a group first")
             return
         room_text = self.room_combo.currentText()
         try:
             room = int(room_text)
         except Exception:
-            self.set_status("无效的房间 id")
+            self.set_status("Invalid room ID")
             return
         text = self.msg_input.text().strip()
         if not text:
-            self.set_status("消息为空")
+            self.set_status("Message is empty")
             return
         payload = {"room_id": room, "content": {"type": "text", "text": text}}
         headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
@@ -285,33 +285,33 @@ class PyClientGUI(QtWidgets.QWidget):
                 send_url = data.get("url")
                 if send_url:
                     actual_send_base = send_url
-                    self.set_status(f"使用 Send 实例: {actual_send_base}")
+                    self.set_status(f"Using Send instance: {actual_send_base}")
         except Exception as e:
-            self.set_status(f"Registry 不可用，使用默认 Send: {e}")
+            self.set_status(f"Registry unavailable, using default Send: {e}")
         
         try:
             r = requests.post(f"{actual_send_base}/api/chat/send_message", json=payload, headers=headers, timeout=5)
             if r.status_code == 200:
-                self.set_status("发送成功")
+                self.set_status("Send successful")
             else:
-                self.set_status(f"发送失败: {r.status_code}")
+                self.set_status(f"Send failed: {r.status_code}")
                 try:
                     self.append_message(r.text)
                 except Exception:
                     pass
         except Exception as e:
-            self.set_status(f"发送错误: {e}")
+            self.set_status(f"Send error: {e}")
 
     def fetch_joined_rooms(self):
         if not self.token:
-            self.set_status("请先登录")
+            self.set_status("Please login first")
             return
         meta_base = self.meta_backend_edit.text().strip()
         headers = {"Authorization": f"Bearer {self.token}"}
         try:
             r = requests.get(f"{meta_base}/api/joined_rooms", headers=headers, timeout=5)
             if r.status_code != 200:
-                self.set_status(f"刷新已加入群失败: {r.status_code}")
+                self.set_status(f"Failed to refresh joined groups: {r.status_code}")
                 try:
                     self.append_message(r.text)
                 except Exception:
@@ -327,18 +327,18 @@ class PyClientGUI(QtWidgets.QWidget):
                     self.room_combo.addItem(str(rid))
                 except Exception:
                     pass
-            self.set_status(f"已加载 {len(room_ids)} 个已加入群")
+            self.set_status(f"Loaded {len(room_ids)} joined groups")
         except Exception as e:
-            self.set_status(f"获取已加入群出错: {e}")
+            self.set_status(f"Error getting joined groups: {e}")
 
     def do_search(self):
         if not self.token:
-            self.set_status("请先登录")
+            self.set_status("Please login first")
             return
-        q, ok = QtWidgets.QInputDialog.getText(self, "搜索群", "搜索关键词:")
+        q, ok = QtWidgets.QInputDialog.getText(self, "Search Groups", "Search Keyword:")
         if not ok:
             return
-        limit, ok = QtWidgets.QInputDialog.getInt(self, "搜索群", "limit:", 20, 1, 1000)
+        limit, ok = QtWidgets.QInputDialog.getInt(self, "Search Groups", "limit:", 20, 1, 1000)
         if not ok:
             return
         headers = {"Authorization": f"Bearer {self.token}"}
@@ -353,12 +353,12 @@ class PyClientGUI(QtWidgets.QWidget):
 
     def do_request_join(self):
         if not self.token:
-            self.set_status("请先登录")
+            self.set_status("Please login first")
             return
-        room_id, ok = QtWidgets.QInputDialog.getInt(self, "提交入群申请", "room id:")
+        room_id, ok = QtWidgets.QInputDialog.getInt(self, "Request to Join Group", "Room ID:")
         if not ok:
             return
-        msg, ok = QtWidgets.QInputDialog.getText(self, "提交入群申请", "message (optional):")
+        msg, ok = QtWidgets.QInputDialog.getText(self, "Request to Join Group", "Message (optional):")
         if not ok:
             msg = ""
         headers = {"Authorization": f"Bearer {self.token}", "Content-Type": "application/json"}
@@ -373,9 +373,9 @@ class PyClientGUI(QtWidgets.QWidget):
 
     def do_list_requests(self):
         if not self.token:
-            self.set_status("请先登录")
+            self.set_status("Please login first")
             return
-        room_id, ok = QtWidgets.QInputDialog.getInt(self, "查询入群申请", "room id:")
+        room_id, ok = QtWidgets.QInputDialog.getInt(self, "Query Join Requests", "Room ID:")
         if not ok:
             return
         headers = {"Authorization": f"Bearer {self.token}"}

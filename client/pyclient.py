@@ -355,15 +355,17 @@ def main_loop(send_base, meta_base):
                 print("7. 提交入群申请")
                 print("8. 列出入群申请(管理员/群主)")
                 print("9. 审核入群申请(管理员/群主)")
-            print("0. 退出")
-            choice = input("请选择: ").strip()
-            if choice == "1":
-                create_room(meta_base, token)
-            elif choice == "2":
-                ws_connect(send_base, token)
-            elif choice == "3":
-                token = None
-                print("已注销登录")
+                print("0. 退出")
+                choice = input("请选择: ").strip()
+                if choice == "1":
+                    create_room(meta_base, token)
+                elif choice == "2":
+                    ws_connect(send_base, token)
+                elif choice == "3":
+                    token = None
+                    print("已注销登录")
+                elif choice == "4":
+                    create_private_room(meta_base, token)
                 elif choice == "5":
                     search_rooms(meta_base, token)
                 elif choice == "6":
@@ -374,13 +376,11 @@ def main_loop(send_base, meta_base):
                     list_join_requests(meta_base, token)
                 elif choice == "9":
                     respond_join_request(meta_base, token)
-            elif choice == "0":
-                print("再见！")
-                break
-            elif choice == "4":
-                create_private_room(meta_base, token)
-            else:
-                print("无效选择")
+                elif choice == "0":
+                    print("再见！")
+                    break
+                else:
+                    print("无效选择")
 
 
 def main():
