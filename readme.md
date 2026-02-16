@@ -149,20 +149,13 @@ bin/gateway2.exe --config config.gateway2.yaml
 
 ### 5. Test Client
 
-A Python CLI client is included for testing registration, login, sending messages, and WebSocket receiving:
+A Python client is included for testing registration, login, sending messages, and WebSocket receiving:
 
 ```bash
 cd client
 pip install -r requirements.txt
 
-# Register
-python pyclient.py register --backend http://localhost:8082
-
-# Login
-python pyclient.py login --backend http://localhost:8082
-
-# WebSocket Connect + Interactive Chat
-TOKEN=<your_jwt> python pyclient.py ws --backend http://localhost:8084
+python pyclient_gui.py
 ```
 
 ## Project Structure
