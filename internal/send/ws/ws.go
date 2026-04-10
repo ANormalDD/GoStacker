@@ -1,14 +1,14 @@
 package ws
 
 import (
-	"GoStacker/pkg/push"
+	"GoStacker/internal/send/push"
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 	"net"
 	"net/http"
 	"strings"
 	"time"
-	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
-	"go.uber.org/zap"
 )
 
 var upgrader = websocket.Upgrader{

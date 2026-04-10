@@ -1,7 +1,7 @@
 package pushnotify
 
 import (
-	"GoStacker/pkg/push"
+	"GoStacker/internal/send/push"
 	"GoStacker/pkg/response"
 
 	"github.com/gin-gonic/gin"

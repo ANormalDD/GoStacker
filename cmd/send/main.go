@@ -1,11 +1,11 @@
 package main
 
 import (
+	"GoStacker/internal/send/push"
 	"GoStacker/internal/send/route"
 	"GoStacker/pkg/bootstrap"
 	"GoStacker/pkg/config"
 	rdb "GoStacker/pkg/db/redis"
-	"GoStacker/pkg/push"
 	"GoStacker/pkg/registry_client"
 	"flag"
 	"fmt"

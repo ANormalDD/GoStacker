@@ -1,7 +1,7 @@
 package group
 
 import (
-	"GoStacker/pkg/push"
+	"GoStacker/internal/send/push"
 	"errors"
 	"time"
 )

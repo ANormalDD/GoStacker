@@ -2,8 +2,8 @@ package send
 
 import (
 	"GoStacker/internal/meta/chat/group"
+	"GoStacker/internal/send/push"
 	"GoStacker/pkg/config"
-	"GoStacker/pkg/push"
 )
 
 func BroadcastMessage(id int64, roomID int64, senderID int64, content ChatPayload) error {
