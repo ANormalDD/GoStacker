@@ -102,6 +102,7 @@ SOURCE model/chat_message.sql;
 ### 2. 修改配置
 
 根据实际环境修改各 `config.*.yaml` 文件中的 MySQL、Redis 连接信息和 JWT 密钥。
+其中 Send 服务可在 `config.send.yaml` 中按职责分别配置 `send_redis.stream`、`send_redis.queue`、`send_redis.cache`，实现多 Redis 独立连接。
 
 ### 3. 构建
 

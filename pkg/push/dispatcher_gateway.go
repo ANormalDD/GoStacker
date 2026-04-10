@@ -107,7 +107,7 @@ func sendToGatewayWithRedisStream(gatewayID string, message interface{}) error {
 	}
 
 	streamName := fmt.Sprintf("%s_stream", gatewayID)
-	err = redis.XAddWithRetry(2, streamName, map[string]interface{}{
+	err = redis.SendStreamXAddWithRetry(2, streamName, map[string]interface{}{
 		"data": data,
 	})
 	zap.L().Debug("Redis stream enqueue", zap.String("stream", streamName))
@@ -180,7 +180,7 @@ func gatewayWorker() {
 						zap.L().Error("gateway dispatch: marshal offline client msg failed", zap.Error(err), zap.Int64("user", uid))
 						continue
 					}
-					if err := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(uid, 10), marshaledMsg); err != nil {
+					if err := redis.SendQueueRPushWithRetry(2, "offline:push:"+strconv.FormatInt(uid, 10), marshaledMsg); err != nil {
 						zap.L().Error("gateway dispatch: rpush offline failed", zap.Error(err), zap.Int64("user", uid))
 					}
 				}

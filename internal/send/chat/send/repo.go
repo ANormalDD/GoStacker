@@ -43,9 +43,9 @@ func InsertMessage(roomID int64, senderID int64, content ChatPayload) (int64, er
 		return 0, err
 	}
 
-	// 使用 pkg/db/redis 的 RPushWithRetry 将缓存写入 Redis 列表：`cache:send:messages`
+	// 使用 send cache 专用 Redis 客户端写入缓存列表：`cache:send:messages`
 	// 注意：此处异步入队，立即返回生成的 msgID；最终会写入 MySQL
-	if err := redis.RPushWithRetry(2, "cache:send:messages", raw); err != nil {
+	if err := redis.SendCacheRPushWithRetry(2, "cache:send:messages", raw); err != nil {
 		return 0, err
 	}
 	return msgID, nil
@@ -87,7 +87,7 @@ func StartMessageFlusher(interval time.Duration, batchSize int, stopCh chan stru
 func flushOnce(batchSize int) {
 	var msgs []cachedMessage
 	for i := 0; i < batchSize; i++ {
-		s, err := redis.LPopWithRetry(2, "cache:send:messages")
+		s, err := redis.SendCacheLPopWithRetry(2, "cache:send:messages")
 		if err != nil {
 			if err == Redis.Nil {
 				break
@@ -110,7 +110,7 @@ func flushOnce(batchSize int) {
 	if err := insertBatch(msgs); err != nil {
 		for i := len(msgs) - 1; i >= 0; i-- {
 			raw, _ := json.Marshal(msgs[i])
-			_ = redis.RPushWithRetry(2, "cache:send:messages", raw)
+			_ = redis.SendCacheRPushWithRetry(2, "cache:send:messages", raw)
 		}
 	}
 }

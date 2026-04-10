@@ -4,6 +4,7 @@ import (
 	"GoStacker/internal/send/route"
 	"GoStacker/pkg/bootstrap"
 	"GoStacker/pkg/config"
+	rdb "GoStacker/pkg/db/redis"
 	"GoStacker/pkg/push"
 	"GoStacker/pkg/registry_client"
 	"flag"
@@ -28,6 +29,12 @@ func main() {
 		os.Exit(1)
 	}
 	defer cleanup()
+
+	if err := rdb.InitSendRoleClients(config.Conf.RedisConfig, config.Conf.SendRedisConfig); err != nil {
+		fmt.Printf("init send redis roles failed: %v\n", err)
+		os.Exit(1)
+	}
+	defer rdb.CloseSendRoleClients()
 
 	// Initialize Registry client if configured
 	if config.Conf != nil && config.Conf.RegistryConfig.URL != "" {

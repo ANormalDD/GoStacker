@@ -22,6 +22,7 @@ type AppConfig struct {
 	*LogConfig               `mapstructure:"log"`
 	*MySQLConfig             `mapstructure:"mysql"`
 	*RedisConfig             `mapstructure:"redis"`
+	*SendRedisConfig         `mapstructure:"send_redis"`
 	*GroupCacheConfig        `mapstructure:"group_cache"`
 	*JWTConfig               `mapstructure:"jwt"`
 	*SendDispatcherConfig    `mapstructure:"send_dispatcher"`
@@ -55,6 +56,14 @@ type RedisConfig struct {
 	DB        int    `mapstructure:"db"`
 	PoolSize  int    `mapstructure:"pool_size"`
 	BatchSize int    `mapstructure:"batch_size"`
+}
+
+// SendRedisConfig defines optional role-based Redis configs for send service.
+// If a role is nil, send service will fall back to global redis config.
+type SendRedisConfig struct {
+	Stream *RedisConfig `mapstructure:"stream"`
+	Queue  *RedisConfig `mapstructure:"queue"`
+	Cache  *RedisConfig `mapstructure:"cache"`
 }
 type GroupCacheConfig struct {
 	Enabled         bool  `mapstructure:"enabled"`
@@ -100,6 +109,11 @@ type RegistryConfig struct {
 	SendHeartbeatTimeout    int    `mapstructure:"send_heartbeat_timeout"`
 	UserRouteTTL            int    `mapstructure:"user_route_ttl"`
 	CleanupInterval         int    `mapstructure:"cleanup_interval"`
+}
+type PendingMsgFlusherConfig struct {
+	Interval  int `mapstructure:"interval"`
+	BatchSize int `mapstructure:"batch_size"`
+	OutboxTTL int `mapstructure:"outbox_ttl"`
 }
 
 func Init() (err error) {

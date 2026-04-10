@@ -31,6 +31,31 @@ redis:
   pool_size: 50
   batch_size: 128
 
+# Optional role-based redis for send service.
+# If any role is omitted, it falls back to the global redis above.
+send_redis:
+  stream:
+    host: "127.0.0.1"
+    port: 6379
+    db: 0
+    password: ""
+    pool_size: 50
+    batch_size: 128
+  queue:
+    host: "127.0.0.1"
+    port: 6379
+    db: 0
+    password: ""
+    pool_size: 50
+    batch_size: 128
+  cache:
+    host: "127.0.0.1"
+    port: 6379
+    db: 0
+    password: ""
+    pool_size: 50
+    batch_size: 128
+
 group_cache:
   enabled: false
   cache_ttl_seconds: 86400

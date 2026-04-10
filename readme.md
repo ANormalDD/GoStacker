@@ -104,6 +104,7 @@ SOURCE model/chat_message.sql;
 ### 2. Configure
 
 Modify `config.*.yaml` files to match your MySQL, Redis connection info and JWT secret.
+For send service, you can optionally configure `send_redis.stream`, `send_redis.queue`, and `send_redis.cache` in `config.send.yaml` to split Redis responsibilities.
 
 ### 3. Build
 

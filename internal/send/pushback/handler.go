@@ -38,7 +38,7 @@ func PushbackHandler(c *gin.Context) {
 
 	// Push to Redis offline queue
 	queueKey := "offline:push:" + strconv.FormatInt(req.TargetID, 10)
-	err = redis.RPushWithRetry(2, queueKey, marshaledMsg)
+	err = redis.SendQueueRPushWithRetry(2, queueKey, marshaledMsg)
 	if err != nil {
 		zap.L().Error("Failed to push offline message to Redis",
 			zap.Int64("target_id", req.TargetID),

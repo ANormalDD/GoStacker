@@ -3,7 +3,6 @@ package push
 import (
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/db/redis"
-	"context"
 	"encoding/json"
 	"strconv"
 	"sync"
@@ -57,7 +56,7 @@ func InsertWaitMsg(userID int64, msg string) {
 }
 
 func InsertOfflineQueue(userID int64, marshaledMsg string) {
-	err := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10), marshaledMsg)
+	err := redis.SendQueueRPushWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10), marshaledMsg)
 	if err != nil {
 		zap.L().Error("Failed toed to RPush offline push message,try store local", zap.Int64("userID", userID), zap.Error(err))
 		InsertOfflineMsg(userID, marshaledMsg)
@@ -66,7 +65,7 @@ func InsertOfflineQueue(userID int64, marshaledMsg string) {
 
 func InsertWaitQueue(userID int64, marshaledMsg string) {
 	InsertWaitSet(userID)
-	err := redis.RPushWithRetry(2, "wait:push:"+strconv.FormatInt(userID, 10), marshaledMsg)
+	err := redis.SendQueueRPushWithRetry(2, "wait:push:"+strconv.FormatInt(userID, 10), marshaledMsg)
 	if err != nil {
 		zap.L().Error("Failed to RPush wait push message,try store local", zap.Int64("userID", userID), zap.Error(err))
 		InsertWaitMsg(userID, marshaledMsg)
@@ -80,7 +79,7 @@ func PushSingleMsg(userID int64, msg ClientMessage) error {
 		err := PushViaWSWithRetry(userID, 2, 10*time.Second, msg)
 		if err != nil {
 			raw, _ := json.Marshal(msg)
-			err2 := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10), raw)
+			err2 := redis.SendQueueRPushWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10), raw)
 			if err2 != nil {
 				zap.L().Error("Failed to RPush offline message back .Message missed", zap.Int64("userID", userID), zap.Error(err2))
 			}
@@ -95,13 +94,13 @@ func PushSingleMsg(userID int64, msg ClientMessage) error {
 
 // 登录时将存在redis中的离线消息推送给用户，然后删除redis中的离线消息
 func PushOfflineMessages(userID int64) {
-	lenOfList, err := redis.Rdb.LLen(context.Background(), "offline:push:"+strconv.FormatInt(userID, 10)).Result()
+	lenOfList, err := redis.SendQueueLLenWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10))
 	if err != nil {
 		if err != Redis.Nil {
 			zap.L().Error("Failed to get length of offline message list", zap.Int64("userID", userID), zap.Error(err))
 			//retry once
 			time.Sleep(100 * time.Millisecond)
-			lenOfList, err = redis.Rdb.LLen(context.Background(), "offline:push:"+strconv.FormatInt(userID, 10)).Result()
+			lenOfList, err = redis.SendQueueLLenWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10))
 			if err != nil {
 				zap.L().Error("Failed to get length of offline message list again, giving up", zap.Int64("userID", userID), zap.Error(err))
 				return
@@ -125,7 +124,7 @@ func PushOfflineMessages(userID int64) {
 			messages = []ClientMessage{}
 			nowSize = 0
 		}
-		msg, err = redis.LPopWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10))
+		msg, err = redis.SendQueueLPopWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10))
 		if err != nil {
 			if err == Redis.Nil {
 				// No more messages
@@ -161,7 +160,7 @@ func PushOfflineMessages(userID int64) {
 		})
 		if err != nil {
 			raw, _ := json.Marshal(messages)
-			err2 := redis.RPushWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10), raw)
+			err2 := redis.SendQueueRPushWithRetry(2, "offline:push:"+strconv.FormatInt(userID, 10), raw)
 			if err2 != nil {
 				zap.L().Error("Failed to RPush offline message back .Message missed", zap.Int64("userID", userID), zap.Error(err2))
 			}
@@ -210,7 +209,7 @@ func ListeningWaitQueue() {
 			uidStr := strconv.FormatInt(uid, 10)
 
 			// pop message from wait queue
-			msgStr, err := redis.LPopWithRetry(2, "wait:push:"+uidStr)
+			msgStr, err := redis.SendQueueLPopWithRetry(2, "wait:push:"+uidStr)
 			if err != nil {
 				if err != Redis.Nil {
 					zap.L().Error("Failed to LPop wait push message", zap.Int64("userID", uid), zap.Error(err))
@@ -225,14 +224,14 @@ func ListeningWaitQueue() {
 			// try enqueue directly to the user's send channel
 			if err := EnqueueMessage(uid, 100*time.Millisecond, clientMsg); err != nil {
 				// push back to wait queue
-				err2 := redis.RPushWithRetry(2, "wait:push:"+uidStr, msgStr)
+				err2 := redis.SendQueueRPushWithRetry(2, "wait:push:"+uidStr, msgStr)
 				if err2 != nil {
 					zap.L().Error("Failed to RPush wait push message back. Message missed", zap.Int64("userID", uid), zap.Error(err2))
 				}
 				return false // stop iteration when queue is busy
 			}
 			// if wait queue is empty remove from local waitSet
-			lenOfWaitQueue, err := redis.Rdb.LLen(context.Background(), "wait:push:"+uidStr).Result()
+			lenOfWaitQueue, err := redis.SendQueueLLenWithRetry(2, "wait:push:"+uidStr)
 			if err != nil {
 				if err != Redis.Nil {
 					zap.L().Error("Failed to get length of wait push queue", zap.Int64("userID", uid), zap.Error(err))
