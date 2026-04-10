@@ -3,9 +3,9 @@ package push
 import (
 	"GoStacker/internal/gateway/centerclient"
 	"GoStacker/internal/gateway/push/types"
-	"GoStacker/pkg/pendingTask"
 	"GoStacker/pkg/config"
 	"GoStacker/pkg/monitor"
+	"GoStacker/pkg/pendingTask"
 	"context"
 	"encoding/json"
 	"os"
@@ -51,11 +51,12 @@ func Dispatch(msg types.PushMessage) error {
 					SenderID: msg.SenderID,
 					Payload:  msg.Payload,
 				}
-				pendingTask.DefaultPendingManager.Done(msg.ID)
 				err2 := centerclient.SendPushBackRequest(config.Conf.CenterConfig, forwardReq, uid)
 				if err2 != nil {
 					zap.L().Error("SendPushBackRequest failed", zap.Int64("userID", uid), zap.Error(err2))
+					continue
 				}
+				pendingTask.DefaultPendingManager.Done(msg.ID)
 				continue
 			}
 			InsertWaitQueue(uid, string(marshaledMsg))

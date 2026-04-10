@@ -67,13 +67,14 @@ func writerLoop(ch *ConnectionHolder) {
 			if mt, ok := req.msg.(int); ok && mt == websocket.PingMessage {
 				err = ch.Conn.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(10*time.Second))
 			} else {
-				msgraw, ok := req.msg.(types.ClientMessage)
-				if ok {
-					pendingTask.DefaultPendingManager.Done(msgraw.ID)
-				}
 				zap.L().Debug("writerLoop sending message", zap.Any("message", req.msg))
 				ch.Conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 				err = ch.Conn.WriteJSON(req.msg)
+				if err == nil {
+					if msgraw, ok := req.msg.(types.ClientMessage); ok {
+						pendingTask.DefaultPendingManager.Done(msgraw.ID)
+					}
+				}
 			}
 			// send result back if caller expects it
 			if req.resp != nil {
@@ -261,10 +262,11 @@ func RemoveConnection(userID int64) error {
 		// attempt to convert message to types.ClientMessage
 		if msg, ok := req.msg.(types.ClientMessage); ok {
 			if config.Conf != nil {
-				pendingTask.DefaultPendingManager.Done(msg.ID)
 				if err := centerclient.SendPushBackRequest(config.Conf.CenterConfig, msg, userID); err != nil {
 					zap.L().Error("SendPushBackRequest failed during RemoveConnection", zap.Int64("userID", userID), zap.Error(err))
+					continue
 				}
+				pendingTask.DefaultPendingManager.Done(msg.ID)
 			}
 		} else {
 			zap.L().Warn("skipping pushback for non-client message", zap.Any("msg", req.msg))
