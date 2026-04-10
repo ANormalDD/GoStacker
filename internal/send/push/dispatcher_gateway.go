@@ -22,6 +22,7 @@ func Dispatch_gateway(msg PushMessage) error {
 	msg2sender.Store(msg.ID, msg.SenderID)
 	batchSize := 100
 	pendingTask.DefaultPendingManager.Init(msg.ID, int32(len(msg.TargetIDs)))
+	droppedTargets := int32(0)
 	for i := 0; i < len(msg.TargetIDs); i += batchSize {
 		end := i + batchSize
 		if end > len(msg.TargetIDs) {
@@ -41,8 +42,12 @@ func Dispatch_gateway(msg PushMessage) error {
 			// enqueued
 		case <-time.After(200 * time.Millisecond):
 			zap.L().Warn("gateway dispatch queue full, dropping sub-message", zap.Any("msg", subMsg))
+			droppedTargets += int32(len(subMsg.TargetIDs))
 			// continue to next batch
 		}
+	}
+	if droppedTargets > 0 {
+		pendingTask.DefaultPendingManager.FailN(msg.ID, droppedTargets)
 	}
 	return nil
 }
@@ -64,6 +69,20 @@ func SendACKToSender(msgID int64) {
 	} else {
 		zap.L().Info("sendACKToSender: ACK sent to sender", zap.Int64("msgID", msgID), zap.Int64("senderID", senderID.(int64)))
 	}
+}
+
+// OnFailMessage only closes server-side lifecycle and lets client retry by ACK timeout.
+func OnFailMessage(msgID int64, failedCount int32) {
+	if senderID, ok := msg2sender.LoadAndDelete(msgID); ok {
+		zap.L().Warn("message failed before ack, sender should retry by timeout",
+			zap.Int64("msgID", msgID),
+			zap.Int64("senderID", senderID.(int64)),
+			zap.Int32("failed_targets", failedCount))
+		return
+	}
+	zap.L().Warn("message failed before ack, sender mapping not found",
+		zap.Int64("msgID", msgID),
+		zap.Int32("failed_targets", failedCount))
 }
 
 func PushSingleViaGateway(userID int64, msg ClientMessage) error {
@@ -120,6 +139,9 @@ func sendToGatewayWithRedisStream(gatewayID string, message interface{}) error {
 
 func gatewayWorker() {
 	for msg := range gatewayQueue {
+		offlineDoneCount := int32(0)
+		offlineFailCount := int32(0)
+
 		// Batch query routes for all target users
 		routeMap, err := route.BatchGetUserGateways(msg.TargetIDs)
 		if err != nil {
@@ -146,14 +168,26 @@ func gatewayWorker() {
 				marshaledMsg, err := json.Marshal(clientMsg)
 				if err != nil {
 					zap.L().Error("gateway dispatch: marshal offline client msg failed", zap.Error(err), zap.Int64("user", uid))
+					offlineFailCount++
 					continue
 				}
 				InsertOfflineQueue(uid, string(marshaledMsg))
+				offlineDoneCount++
 			}
+		}
+
+		if offlineDoneCount > 0 {
+			pendingTask.DefaultPendingManager.DoneN(msg.ID, offlineDoneCount)
+		}
+		if offlineFailCount > 0 {
+			pendingTask.DefaultPendingManager.FailN(msg.ID, offlineFailCount)
 		}
 
 		// For each gateway, create a PushMessage and send to gateway via Redis Stream
 		for gid, uids := range groups {
+			groupDoneCount := int32(0)
+			groupFailCount := int32(0)
+
 			gwMsg := PushMessage{
 				ID:        msg.ID,
 				Type:      msg.Type,
@@ -178,14 +212,22 @@ func gatewayWorker() {
 					marshaledMsg, err := json.Marshal(clientMsg)
 					if err != nil {
 						zap.L().Error("gateway dispatch: marshal offline client msg failed", zap.Error(err), zap.Int64("user", uid))
+						groupFailCount++
 						continue
 					}
 					if err := redis.SendQueueRPushWithRetry(2, "offline:push:"+strconv.FormatInt(uid, 10), marshaledMsg); err != nil {
 						zap.L().Error("gateway dispatch: rpush offline failed", zap.Error(err), zap.Int64("user", uid))
+						groupFailCount++
+						continue
 					}
+					groupDoneCount++
 				}
-				pendingTask.DefaultPendingManager.Delete(msg.ID)
-				msg2sender.Delete(msg.ID)
+				if groupDoneCount > 0 {
+					pendingTask.DefaultPendingManager.DoneN(msg.ID, groupDoneCount)
+				}
+				if groupFailCount > 0 {
+					pendingTask.DefaultPendingManager.FailN(msg.ID, groupFailCount)
+				}
 				continue
 			}
 			pendingTask.DefaultPendingManager.DoneN(msg.ID, int32(len(uids)))
@@ -198,6 +240,7 @@ func gatewayWorker() {
 // - queueSize: 队列缓冲大小；若为 0 则默认 1024。
 func StartGatewayDispatcher(workers int, queueSize int) {
 	pendingTask.DefaultPendingManager.SetDoneFunc(SendACKToSender)
+	pendingTask.DefaultPendingManager.SetFailFunc(OnFailMessage)
 	if queueSize <= 0 {
 		queueSize = 1024
 	}
