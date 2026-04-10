@@ -8,6 +8,7 @@ import (
 	"GoStacker/pkg/pendingTask"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -70,47 +71,53 @@ func pullLoop() {
 	defer func() { isPulling = false }()
 
 	for {
-		if atomic.LoadInt64(&totalPending) > threshold {
-			return
-		}
-
-		resultChan := make(chan pullResult, 1)
-
-		go func() {
-			xstreams, err := Redis.XReadGroupBlocking(
-				streamName, groupName, consumerGroup,
-				int64(batchSize), 0, lastID,
-			)
-			resultChan <- pullResult{xstreams, err}
-		}()
-
 		select {
 		case <-pullCtx.Done():
 			zap.L().Info("pullLoop canceled")
 			return
+		default:
+		}
 
-		case res := <-resultChan:
-			if res.err != nil {
-				zap.L().Error("XReadGroup error", zap.Error(res.err))
+		if atomic.LoadInt64(&totalPending) > threshold {
+			return
+		}
+
+		xstreams, err := Redis.XReadGroupBlockingWithContext(
+			pullCtx,
+			streamName,
+			groupName,
+			consumerGroup,
+			int64(batchSize),
+			time.Second,
+			lastID,
+		)
+		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				zap.L().Info("pullLoop canceled")
+				return
+			}
+			if err == redis.Nil {
 				continue
 			}
+			zap.L().Error("XReadGroup error", zap.Error(err))
+			continue
+		}
 
-			tasks, err := XStream2PushMessage(res.xstreams)
-			if err != nil {
-				zap.L().Error("XStream2PushMessage error", zap.Error(err))
-				continue
-			}
+		tasks, err := XStream2PushMessage(xstreams)
+		if err != nil {
+			zap.L().Error("XStream2PushMessage error", zap.Error(err))
+			continue
+		}
 
-			for _, task := range tasks {
-				taskChan <- task
+		for _, task := range tasks {
+			select {
+			case taskChan <- task:
+			case <-pullCtx.Done():
+				zap.L().Info("pullLoop canceled")
+				return
 			}
 		}
 	}
-}
-
-type pullResult struct {
-	xstreams []redis.XStream
-	err      error
 }
 
 // blocking pull task from redis stream

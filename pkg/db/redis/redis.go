@@ -139,8 +139,10 @@ func XGroupCreateMkStreamWithRetry(retry int, stream string, group string, start
 	return err
 }
 
-func XReadGroupBlocking(stream string, group string, consumer string, count int64, block time.Duration, lastID string) ([]redis.XStream, error) {
-	ctx := context.Background()
+func XReadGroupBlockingWithContext(ctx context.Context, stream string, group string, consumer string, count int64, block time.Duration, lastID string) ([]redis.XStream, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return Rdb.XReadGroup(ctx, &redis.XReadGroupArgs{
 		Group:    group,
 		Consumer: consumer,
@@ -148,6 +150,10 @@ func XReadGroupBlocking(stream string, group string, consumer string, count int6
 		Count:    count,
 		Block:    block,
 	}).Result()
+}
+
+func XReadGroupBlocking(stream string, group string, consumer string, count int64, block time.Duration, lastID string) ([]redis.XStream, error) {
+	return XReadGroupBlockingWithContext(context.Background(), stream, group, consumer, count, block, lastID)
 }
 
 func XAckWithRetry(retry int, stream string, group string, ids ...string) error {
