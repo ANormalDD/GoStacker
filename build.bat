@@ -4,7 +4,7 @@ setlocal
 cd /d "%~dp0"
 if not exist "bin" mkdir "bin"
 
-set BINARIES=gateway flusher meta send registry
+set BINARIES=gateway flusher msgflusher meta send registry
 
 for %%G in (%BINARIES%) do (
     echo Building %%G...

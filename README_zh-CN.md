@@ -49,7 +49,7 @@
 
 ![architecture](structure.png)
 
-系统由 **5 个微服务** 组成，各服务职责清晰、独立部署，支持水平扩展：
+系统由 **6 个微服务** 组成，各服务职责清晰、独立部署，支持水平扩展：
 
 | 服务 | 默认端口 | 说明 |
 |------|----------|------|
@@ -58,6 +58,7 @@
 | **Gateway** | 8084+ | 消息转发服务，维护 WebSocket 长连接，支持多实例部署 |
 | **Send Service** | 8081 | 消息发送服务（无状态），负责消息转发与离线消息处理 |
 | **Flusher** | - | 后台定时任务，将缓存中的脏数据（群组信息、消息）批量写入数据库 |
+| **MsgFlusher** | - | 独立 Pending 消息回收服务，认领 Redis Stream 超时 pending 并回退到 Send Service |
 
 ### 消息流转流程
 
@@ -144,6 +145,9 @@ bin/send.exe --config config.send.yaml
 # 5. Gateway（WebSocket 网关，可启动多个实例）
 bin/gateway.exe --config config.gateway.yaml
 bin/gateway2.exe --config config.gateway2.yaml
+
+# 6. MsgFlusher（独立 Pending 回收服务）
+bin/msgflusher.exe --config config.msgflusher.yaml
 ```
 
 ### 5. 测试客户端

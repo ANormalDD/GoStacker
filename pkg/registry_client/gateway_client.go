@@ -1,6 +1,7 @@
 package registry_client
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,6 +12,16 @@ import (
 type GatewayClient struct {
 	*Client
 	gatewayID string
+}
+
+// GatewayInstanceInfo represents gateway instance information from registry.
+type GatewayInstanceInfo struct {
+	GatewayID      string  `json:"gateway_id"`
+	Address        string  `json:"address"`
+	Port           int     `json:"port"`
+	Load           float32 `json:"load"`
+	Capacity       int     `json:"capacity"`
+	ConnectedUsers int     `json:"connected_users"`
 }
 
 // NewGatewayClient creates a new gateway client
@@ -39,11 +50,10 @@ type HeartbeatGatewayRequest struct {
 // Register registers the gateway with the registry service
 func (gc *GatewayClient) Register(address string, port int, capacity int) error {
 	req := map[string]interface{}{
-		"gateway_id":  gc.gatewayID,
-		"address":     address,
-		"port":        port,
-		"capacity":        capacity,
-
+		"gateway_id": gc.gatewayID,
+		"address":    address,
+		"port":       port,
+		"capacity":   capacity,
 	}
 
 	resp, err := gc.doRequest("POST", "/registry/gateway/register", req, 2)
@@ -108,6 +118,35 @@ func (gc *GatewayClient) Unregister() error {
 
 	zap.L().Info("Gateway unregistered successfully", zap.String("gateway_id", gc.gatewayID))
 	return nil
+}
+
+// ListGateways returns all available gateway instances.
+func (gc *GatewayClient) ListGateways() ([]GatewayInstanceInfo, error) {
+	resp, err := gc.doRequest("GET", "/registry/gateway/instances", nil, 2)
+	if err != nil {
+		zap.L().Error("Failed to list gateways", zap.Error(err))
+		return nil, err
+	}
+
+	if resp.Code != 0 {
+		return nil, fmt.Errorf("list gateways failed: %s", resp.Message)
+	}
+
+	var result struct {
+		Gateways []GatewayInstanceInfo `json:"gateways"`
+	}
+	if resp.Data != nil {
+		dataBytes, err := json.Marshal(resp.Data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal response data: %w", err)
+		}
+		err = json.Unmarshal(dataBytes, &result)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal gateways data: %w", err)
+		}
+	}
+
+	return result.Gateways, nil
 }
 
 // NotifyUserConnectRequest represents user connection notification

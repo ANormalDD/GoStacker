@@ -156,6 +156,20 @@ func XReadGroupBlocking(stream string, group string, consumer string, count int6
 	return XReadGroupBlockingWithContext(context.Background(), stream, group, consumer, count, block, lastID)
 }
 
+func XAutoClaimWithContext(ctx context.Context, stream string, group string, consumer string, minIdle time.Duration, start string, count int64) ([]redis.XMessage, string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	return Rdb.XAutoClaim(ctx, &redis.XAutoClaimArgs{
+		Stream:   stream,
+		Group:    group,
+		Consumer: consumer,
+		MinIdle:  minIdle,
+		Start:    start,
+		Count:    count,
+	}).Result()
+}
+
 func XAckWithRetry(retry int, stream string, group string, ids ...string) error {
 	var err error
 	for i := 0; i < retry; i++ {

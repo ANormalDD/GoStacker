@@ -27,6 +27,7 @@ type AppConfig struct {
 	*JWTConfig               `mapstructure:"jwt"`
 	*SendDispatcherConfig    `mapstructure:"send_dispatcher"`
 	*GatewayDispatcherConfig `mapstructure:"dispatcher"`
+	*PendingMsgFlusherConfig `mapstructure:"pending_msg_flusher"`
 	*CenterConfig            `mapstructure:"center"`
 	*RegistryConfig          `mapstructure:"registry"`
 }
@@ -111,9 +112,12 @@ type RegistryConfig struct {
 	CleanupInterval         int    `mapstructure:"cleanup_interval"`
 }
 type PendingMsgFlusherConfig struct {
-	Interval  int `mapstructure:"interval"`
-	BatchSize int `mapstructure:"batch_size"`
-	OutboxTTL int `mapstructure:"outbox_ttl"`
+	Interval         int    `mapstructure:"interval"`
+	BatchSize        int    `mapstructure:"batch_size"`
+	OutboxTTL        int    `mapstructure:"outbox_ttl"`
+	ClaimIdleSeconds int    `mapstructure:"claim_idle_seconds"`
+	StreamSuffix     string `mapstructure:"stream_suffix"`
+	GroupSuffix      string `mapstructure:"group_suffix"`
 }
 
 func Init() (err error) {

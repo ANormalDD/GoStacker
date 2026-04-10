@@ -51,7 +51,7 @@ When a user disconnects, the User→Gateway route is not deleted immediately but
 
 ![architecture](structure.png)
 
-The system consists of **5 Microservices**:
+The system consists of **6 Microservices**:
 
 | Service | Default Port | Description |
 |---------|--------------|-------------|
@@ -60,6 +60,7 @@ The system consists of **5 Microservices**:
 | **Gateway** | 8084+ | Message forwarding service. Maintains WebSocket persistent connections. Supports multi-instance deployment. |
 | **Send Service** | 8081 | Stateless message sending service. Handles message routing and offline storage. |
 | **Flusher** | - | Background scheduled task. Batches dirty data (Group info, Messages) from cache to DB. |
+| **MsgFlusher** | - | Standalone pending message reclaimer. Reclaims timed-out Redis Stream pending messages and pushes back to Send service. |
 
 ### Message Flow
 
@@ -146,6 +147,9 @@ bin/send.exe --config config.send.yaml
 # 5. Gateway (WebSocket Gateway, multiple instances supported)
 bin/gateway.exe --config config.gateway.yaml
 bin/gateway2.exe --config config.gateway2.yaml
+
+# 6. MsgFlusher (Standalone pending message reclaim service)
+bin/msgflusher.exe --config config.msgflusher.yaml
 ```
 
 ### 5. Test Client

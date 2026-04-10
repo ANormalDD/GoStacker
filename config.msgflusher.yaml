@@ -1,0 +1,31 @@
+port: 0
+name: "gostacker-msgflusher"
+mode: "prod"
+version: "0.1"
+start_time: ""
+machine_id: 30
+
+log:
+  level: "info"
+  filename: "logs/msgflusher.log"
+  max_size: 50
+  max_backups: 7
+  max_age: 30
+
+redis:
+  host: "127.0.0.1"
+  port: 6379
+  db: 0
+  password: ""
+  pool_size: 50
+  batch_size: 128
+
+registry:
+  url: "http://127.0.0.1:8083"
+
+pending_msg_flusher:
+  interval: 5
+  batch_size: 100
+  claim_idle_seconds: 30
+  stream_suffix: "_stream"
+  group_suffix: "_group"

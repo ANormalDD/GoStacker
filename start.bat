@@ -9,4 +9,6 @@ start "" cmd /k "cd /d %~dp0 & bin\send.exe --config config.send.yaml"
 timeout /t 2 /nobreak >nul
 start "" cmd /k "cd /d %~dp0 & bin\gateway.exe --config config.gateway.yaml"
 start "" cmd /k "cd /d %~dp0 & bin\gateway2.exe --config config.gateway2.yaml"
+timeout /t 2 /nobreak >nul
+start "" cmd /k "cd /d %~dp0 & bin\msgflusher.exe --config config.msgflusher.yaml"
 exit /b 0
